@@ -8,12 +8,15 @@ import torch.nn as nn
 from networks.ae import AE
 from networks.mem_ae import MemAE
 from networks.aeu import AEU
+from networks.vae import VAE
+from networks.ganomaly import Ganomaly
 
 from dataloaders.data_utils import get_transform, get_data_path
 from dataloaders.dataload import MedAD, BraTSAD
 import wandb
 from thop import profile
-from utils.losses import l2_loss, l1_loss, aeu_loss, memae_loss
+# from utils.losses import ae_loss, aeu_loss, memae_loss, vae_loss, vae_loss_grad_elbo, vae_loss_grad_kl, vae_loss_grad_rec, vae_loss_grad_combi
+from utils.losses import *
 
 
 class BaseWorker:
@@ -52,7 +55,14 @@ class BaseWorker:
                           base_width=self.opt.model['base_width'], expansion=self.opt.model['expansion'],
                           mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
                           en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"])
-            self.criterion = l2_loss
+            # self.criterion = l2_loss
+            self.criterion = ae_loss
+        elif self.opt.model['name'] == 'ae-grad':
+            self.net = AE(input_size=self.opt.model['input_size'], in_planes=self.opt.model['in_c'],
+                          base_width=self.opt.model['base_width'], expansion=self.opt.model['expansion'],
+                          mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
+                          en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"])
+            self.criterion = ae_loss_grad
         elif self.opt.model['name'] == 'memae':
             self.net = MemAE(input_size=self.opt.model['input_size'], in_planes=self.opt.model['in_c'],
                              base_width=self.opt.model['base_width'], expansion=self.opt.model['expansion'],
@@ -65,6 +75,30 @@ class BaseWorker:
                            mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
                            en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"])
             self.criterion = aeu_loss
+        # elif self.opt.model['name'] == 'vae':
+        elif 'vae' in self.opt.model['name']:
+            self.net = VAE(input_size=self.opt.model['input_size'], in_planes=self.opt.model['in_c'],
+                           base_width=self.opt.model['base_width'], expansion=self.opt.model['expansion'],
+                           mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
+                           en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"])
+            if self.opt.model['name'] == 'vae':
+                self.criterion = vae_loss
+            elif self.opt.model['name'] == 'vae-elbo':
+                self.criterion = vae_loss_grad_elbo
+            elif self.opt.model['name'] == 'vae-kl':
+                self.criterion = vae_loss_grad_kl
+            elif self.opt.model['name'] == 'vae-rec':
+                self.criterion = vae_loss_grad_rec
+            elif self.opt.model['name'] == 'vae-combi':
+                self.criterion = vae_loss_grad_combi
+            else:
+                raise Exception("Invalid VAE model: {}".format(self.opt.model['name']))
+        elif self.opt.model['name'] == 'ganomaly':
+            self.net = Ganomaly(input_size=self.opt.model['input_size'], in_planes=self.opt.model['in_c'],
+                                base_width=self.opt.model['base_width'], expansion=self.opt.model['expansion'],
+                                mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
+                                en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"])
+            self.criterion = ganomaly_loss
         else:
             raise NotImplementedError("Unexpected model name: {}".format(self.opt.model['name']))
         self.net = self.net.cuda()
@@ -108,11 +142,11 @@ class BaseWorker:
         self.train_loader = DataLoader(self.train_set, batch_size=self.opt.train['batch_size'], shuffle=True)
         self.test_loader = DataLoader(self.test_set, batch_size=1, shuffle=False)
 
-    def set_logging(self):
+    def set_logging(self, test=False):
         example_in = torch.zeros((1, self.opt.model["in_c"],
                                   self.opt.model['input_size'], self.opt.model['input_size'])).cuda()
         flops, params = profile(self.net, inputs=(example_in,))
-        flops, params = round(flops * 1e-6, 2), round(params * 1e-6, 2)  # 1e6 = M
+        flops, params = round(flops * 1e-6, 4), round(params * 1e-6, 4)  # 1e6 = M
         flops, params = str(flops) + "M", str(params) + "M"
 
         exp_configs = {"dataset": self.opt.dataset,
@@ -138,12 +172,21 @@ class BaseWorker:
                        "FLOPs": flops}
 
         # self.logger = wandb.init(project="MedIAnomaly", config=exp_configs, name=self.opt.notes, tags=[self.opt.tags])
-        self.logger = wandb.init(project=self.opt.project_name, config=exp_configs)
+        if not test:
+            self.logger = wandb.init(project=self.opt.project_name, config=exp_configs)
         print("============= Configurations =============")
         for key, values in exp_configs.items():
             # print(key + ":" + str(values), end=" | ")
             print(key + ":" + str(values))
         print()
+
+    def close_network_grad(self):
+        for param in self.net.parameters():
+            param.requires_grad = False
+
+    def enable_network_grad(self):
+        for param in self.net.parameters():
+            param.requires_grad = True
 
     def set_test_loader(self):
         """ Use for only evaluation"""

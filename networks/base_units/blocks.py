@@ -147,4 +147,29 @@ class MemBottleNeck(BottleNeck):
         out = out.view(x.size(0), self.in_planes, self.feature_size, self.feature_size)
 
         return {'out': out, 'att': att, 'z': z, 'z_hat': z_hat}
-    
+
+
+class VaeBottleNeck(BottleNeck):
+    def __init__(self, in_planes, feature_size, mid_num=2048, latent_size=16):
+        super(VaeBottleNeck, self).__init__(in_planes, feature_size, mid_num, latent_size)
+        self.linear_enc = nn.Sequential(
+            nn.Linear(in_planes * feature_size * feature_size, mid_num),
+            nn.BatchNorm1d(mid_num),
+            nn.ReLU(True),
+            nn.Linear(mid_num, 2 * latent_size))
+
+    def reparameterize(self, mu, log_var):
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(std)
+        return eps * std + mu
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        z = self.linear_enc(x)
+
+        mu, log_var = z.chunk(2, dim=1)
+        z_hat = self.reparameterize(mu, log_var)
+
+        out = self.linear_dec(z_hat)
+        out = out.view(x.size(0), self.in_planes, self.feature_size, self.feature_size)
+        return {'out': out, 'mu': mu, 'log_var': log_var}

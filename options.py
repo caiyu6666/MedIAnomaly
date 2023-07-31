@@ -26,13 +26,12 @@ class Options:
         parser = argparse.ArgumentParser(description='')
         parser.add_argument("-d", '--dataset', type=str, default='rsna', help='rsna, vin, brain, lag, brats')
         parser.add_argument("-g", '--gpu', type=int, default=6, help='select gpu devices')
-        # parser.add_argument('--task', type=str, default='debug', help='')
-        parser.add_argument("-p", '--project-name', type=str, default="MedIAnomaly", required=False,
+        # parser.add_argument("-p", '--project-name', type=str, default="MedIAnomaly", required=False,
+        #                     help='Name of the current project. eg, MedIAnomaly')
+        parser.add_argument("-p", '--project-name', type=str, default="tmp", required=False,
                             help='Name of the current project. eg, MedIAnomaly')
         parser.add_argument("-n", '--notes', type=str, default="default", required=False,
                             help='Notes of the current experiment. e.g., ae-architecture')
-        # parser.add_argument('--tags', type=str, default="default",
-        #                     help='Optional. Other notes of the current experiment. e.g., input_size')
         parser.add_argument("-f", '--fold', type=int, default=0, help='0-4, five fold cross validation')
         parser.add_argument("-m", '--model-name', type=str, default='ae', help='ae, aeu, memae')
         parser.add_argument('--in-c', type=int, default=1, help='input channel')
@@ -54,11 +53,9 @@ class Options:
         parser.add_argument('--train-lr', type=float, default=1e-3, help='initial learning rate')
         parser.add_argument('--train-weight-decay', type=float, default=0, help='weight decay')
         parser.add_argument('--train-seed', type=int, default=None, help='random seed')
-        # parser.add_argument('--train-loss', type=str, default='l2', help='loss function, e.g., l2, l1')
 
         parser.add_argument("-save", '--test-save-flag', action='store_true')
         parser.add_argument('--test-model-path', type=str, default=None, help='model path to test')
-        # parser.add_argument('--test-test-epoch', type=int, default=0, help='the checkpoint to test')
 
         args = parser.parse_args()
 

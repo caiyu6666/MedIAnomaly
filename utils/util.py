@@ -24,24 +24,24 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def l2_distance(x, x_hat):
-    """
-    Compute the l2 distance for anomaly score map.
-    :param x: (N, C, H, W)
-    :param x_hat: (N, C, H, W)
-    :return: (N, C, H, W)
-    """
-    return (x - x_hat) ** 2
-
-
-def l1_distance(x, x_hat):
-    """
-    Compute the l1 distance for anomaly score map.
-    :param x: (N, C, H, W)
-    :param x_hat: (N, C, H, W)
-    :return: (N, C, H, W)
-    """
-    return torch.abs(x - x_hat)
+# def l2_distance(x, x_hat):
+#     """
+#     Compute the l2 distance for anomaly score map.
+#     :param x: (N, C, H, W)
+#     :param x_hat: (N, C, H, W)
+#     :return: (N, C, H, W)
+#     """
+#     return (x - x_hat) ** 2
+#
+#
+# def l1_distance(x, x_hat):
+#     """
+#     Compute the l1 distance for anomaly score map.
+#     :param x: (N, C, H, W)
+#     :param x_hat: (N, C, H, W)
+#     :return: (N, C, H, W)
+#     """
+#     return torch.abs(x - x_hat)
 
 
 def calculate_threshold_fpr(y_true, y_pred, target_fpr=0.01, num_iters=20):

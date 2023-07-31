@@ -7,7 +7,8 @@ import os
 from sklearn import metrics
 
 from utils.base_worker import BaseWorker
-from utils.util import AverageMeter, l1_distance, l2_distance, calculate_threshold_fpr, calculate_dice_thr
+from utils.util import AverageMeter, calculate_threshold_fpr, calculate_dice_thr
+from torchvision.models import resnet18
 
 
 class AEWorker(BaseWorker):
@@ -31,14 +32,6 @@ class AEWorker(BaseWorker):
             losses.update(loss.item(), img.size(0))
         return losses.avg
 
-    def get_score_func(self):
-        if self.opt.train['loss'] == 'l2':
-            return l2_distance
-        elif self.opt.train['loss'] == 'l1':
-            return l1_distance
-        else:
-            raise NotImplementedError("Missing the evaluation code for {}".format(self.opt.train['loss']))
-
     def evaluate(self):
         if self.opt.dataset == "brats":
             return self.evaluate_3d()
@@ -47,101 +40,112 @@ class AEWorker(BaseWorker):
 
     def evaluate_2d(self):
         self.net.eval()
-        # score_func = self.get_score_func()
-        score_func = self.criterion
+        self.close_network_grad()
 
-        test_imgs, test_imgs_hat, test_score_maps, test_names, test_labels = [], [], [], [], []
-        with torch.no_grad():
-            for idx_batch, data_batch in enumerate(self.test_loader):
-                # test batch_size=1
-                img, label, name = data_batch['img'], data_batch['label'], data_batch['name']
-                img = img.cuda()
+        test_imgs, test_imgs_hat, test_scores, test_score_maps, test_names, test_labels = [], [], [], [], [], []
+        # with torch.no_grad():
+        for idx_batch, data_batch in enumerate(self.test_loader):
+            # test batch_size=1
+            img, label, name = data_batch['img'], data_batch['label'], data_batch['name']
+            img = img.cuda()
+            img.requires_grad = True
 
-                net_out = self.net(img)
+            net_out = self.net(img)
+
+            anomaly_score = self.criterion(img, net_out, anomaly_score=True).detach()
+
+            test_scores.append(anomaly_score.cpu())
+            test_labels.append(label.item())
+
+            if self.opt.test['save_flag']:
                 img_hat = net_out['x_hat']
+                test_names.append(name)
+                test_imgs.append(img.cpu())
+                test_imgs_hat.append(img_hat.cpu())
 
-                anomaly_score_map = score_func(img, net_out, keepdim=True)
-
+                anomaly_score_map = self.criterion(img, net_out, anomaly_score=True, keepdim=True).detach()
                 test_score_maps.append(anomaly_score_map.cpu())
-                test_labels.append(label.item())
 
-                if self.opt.test['save_flag']:
-                    test_names.append(name)
-                    test_imgs.append(img.cpu())
-                    test_imgs_hat.append(img_hat.cpu())
-
-        test_score_maps = torch.cat(test_score_maps, dim=0)  # N x 1 x H x W
         if self.opt.test['save_flag']:
+            test_score_maps = torch.cat(test_score_maps, dim=0)  # N x 1 x H x W
             test_imgs = torch.cat(test_imgs, dim=0)
             test_imgs_hat = torch.cat(test_imgs_hat, dim=0)
             self.visualize_2d(test_imgs, test_imgs_hat, test_score_maps, test_names, test_labels)
 
-        test_score = np.array(torch.mean(test_score_maps, dim=[1, 2, 3]))  # N
+        test_scores = np.concatenate(test_scores)  # N
         test_labels = np.array(test_labels)
 
-        auc = metrics.roc_auc_score(test_labels, test_score)
-        ap = metrics.average_precision_score(test_labels, test_score)
+        auc = metrics.roc_auc_score(test_labels, test_scores)
+        ap = metrics.average_precision_score(test_labels, test_scores)
         results = {'AUC': auc, "AP": ap}
+
+        self.enable_network_grad()
         return results
 
     def evaluate_3d(self):
         self.net.eval()
-        # score_func = self.get_score_func()
-        score_func = self.criterion
+        self.close_network_grad()
 
-        test_volumes, test_volumes_hat, test_score_maps, test_names, test_masks = [], [], [], [], []
-        with torch.no_grad():
-            for idx_batch, data_batch in enumerate(self.test_loader):
-                # test batch_size=1
-                volume, mask, name = data_batch['volume'], data_batch['mask'], data_batch['name']
-                # volume, mask: 1 x depth x H x W
+        test_volumes, test_volumes_hat, test_scores, test_score_maps, test_names, test_masks = [], [], [], [], [], []
 
-                volume = volume.cuda()
-                volume = volume.squeeze(0).unsqueeze(1)  # depth x 1 x H x W
-                mask = (mask.squeeze(0).unsqueeze(1).numpy() > 0).astype(np.uint8)
+        # with torch.no_grad():
+        for idx_batch, data_batch in enumerate(self.test_loader):
+            # test batch_size=1
+            volume, mask, name = data_batch['volume'], data_batch['mask'], data_batch['name']
+            # volume, mask: 1 x depth x H x W
 
-                net_out = self.net(volume)
-                volume_hat = net_out['x_hat']
+            volume = volume.cuda()
+            volume = volume.squeeze(0).unsqueeze(1)  # depth x 1 x H x W
+            mask = (mask.squeeze(0).unsqueeze(1).numpy() > 0).astype(np.uint8)
 
-                anomaly_score_map = score_func(volume, net_out, keepdim=True)
+            volume.requires_grad = True
+            
+            net_out = self.net(volume)
 
-                test_score_maps.append(anomaly_score_map.cpu())
-                test_masks.append(mask)
+            anomaly_score_map = self.criterion(volume, net_out, anomaly_score=True, keepdim=True).detach()
+            test_score_maps.append(anomaly_score_map.cpu())
 
-                if self.opt.test['save_flag']:
-                    test_names.append(name)
-                    test_volumes.append(volume.cpu())
-                    test_volumes_hat.append(volume_hat.cpu())
+            test_masks.append(mask)
 
-            score_concat = torch.cat(test_score_maps, dim=0)  # N x 1 x H x W
             if self.opt.test['save_flag']:
-                test_volumes = torch.cat(test_volumes, dim=0)
-                test_volumes_hat = torch.cat(test_volumes_hat, dim=0)
-                self.visualize_3d(test_volumes, test_volumes_hat, score_concat, test_masks, test_names)
+                volume_hat = net_out['x_hat']
+                test_names.append(name)
+                test_volumes.append(volume.cpu())
+                test_volumes_hat.append(volume_hat.cpu())
 
-            score_concat = np.array(score_concat)  # N x 1 x H x W
-            true_concat = np.concatenate(test_masks, axis=0).astype(np.uint8)
+        score_concat = torch.cat(test_score_maps, dim=0)  # N x 1 x H x W
 
-            y_score_slice = score_concat.mean(-1).mean(-1).reshape(-1)
-            y_true_slice = (true_concat.sum(-1).sum(-1).reshape(-1) > 0).astype(np.uint8)
+        if self.opt.test['save_flag']:
+            test_volumes = torch.cat(test_volumes, dim=0)
+            test_volumes_hat = torch.cat(test_volumes_hat, dim=0)
 
-            slice_auc = metrics.roc_auc_score(y_true_slice, y_score_slice)
-            slice_ap = metrics.average_precision_score(y_true_slice, y_score_slice)
+            self.visualize_3d(test_volumes, test_volumes_hat, score_concat, test_masks, test_names)
 
-            fpr01, threshold_at_fpr01 = calculate_threshold_fpr(true_concat, score_concat, target_fpr=0.001)  # 0.1%FPR
-            fpr1, threshold_at_fpr1 = calculate_threshold_fpr(true_concat, score_concat, target_fpr=0.01)  # 1%FPR
-            fpr5, threshold_at_fpr5 = calculate_threshold_fpr(true_concat, score_concat, target_fpr=0.05)  # 5%FPR
+        score_concat = np.array(score_concat)  # N x 1 x H x W
+        true_concat = np.concatenate(test_masks, axis=0).astype(np.uint8)
 
-            dice01 = calculate_dice_thr(test_masks, test_score_maps, threshold=threshold_at_fpr01)
-            dice1 = calculate_dice_thr(test_masks, test_score_maps, threshold=threshold_at_fpr1)
-            dice5 = calculate_dice_thr(test_masks, test_score_maps, threshold=threshold_at_fpr5)
-            # print("At FPR: {:4f}, threshold is {:.5f} || DICE: {}".format(fpr01, threshold_at_fpr01, dice01))
-            # print("At FPR: {:4f}, threshold is {:.5f} || DICE: {}".format(fpr1, threshold_at_fpr1, dice1))
-            # print("At FPR: {:4f}, threshold is {:.5f} || DICE: {}".format(fpr5, threshold_at_fpr5, dice5))
-            # print()
-            results = {"Dice_FPR0.1%": dice01, "Dice_FPR1%": dice1, "Dice_FPR5%": dice5, "Slice_AUC": slice_auc,
-                       "Slice_AP": slice_ap}
-            return results
+        y_score_slice = score_concat.mean(-1).mean(-1).reshape(-1)
+        y_true_slice = (true_concat.sum(-1).sum(-1).reshape(-1) > 0).astype(np.uint8)
+
+        slice_auc = metrics.roc_auc_score(y_true_slice, y_score_slice)
+        slice_ap = metrics.average_precision_score(y_true_slice, y_score_slice)
+
+        fpr01, threshold_at_fpr01 = calculate_threshold_fpr(true_concat, score_concat, target_fpr=0.001)  # 0.1%FPR
+        fpr1, threshold_at_fpr1 = calculate_threshold_fpr(true_concat, score_concat, target_fpr=0.01)  # 1%FPR
+        fpr5, threshold_at_fpr5 = calculate_threshold_fpr(true_concat, score_concat, target_fpr=0.05)  # 5%FPR
+
+        dice01 = calculate_dice_thr(test_masks, test_score_maps, threshold=threshold_at_fpr01)
+        dice1 = calculate_dice_thr(test_masks, test_score_maps, threshold=threshold_at_fpr1)
+        dice5 = calculate_dice_thr(test_masks, test_score_maps, threshold=threshold_at_fpr5)
+        # print("At FPR: {:4f}, threshold is {:.5f} || DICE: {}".format(fpr01, threshold_at_fpr01, dice01))
+        # print("At FPR: {:4f}, threshold is {:.5f} || DICE: {}".format(fpr1, threshold_at_fpr1, dice1))
+        # print("At FPR: {:4f}, threshold is {:.5f} || DICE: {}".format(fpr5, threshold_at_fpr5, dice5))
+        # print()
+        results = {"Dice_FPR0.1%": dice01, "Dice_FPR1%": dice1, "Dice_FPR5%": dice5, "Slice_AUC": slice_auc,
+                   "Slice_AP": slice_ap}
+
+        self.enable_network_grad()
+        return results
 
     def visualize_2d(self, imgs, imgs_hat, score_maps, names, labels):
         imgs = (imgs + 1) / 2
