@@ -180,7 +180,6 @@ def ganomaly_loss(net_in, net_out, mode='g', w_adv=1, w_rec=50, w_enc=1, anomaly
         z, z_hat = net_out['z'], net_out['z_hat']
         return torch.mean((z - z_hat) ** 2, dim=1)
     else:
-        l_bce = nn.BCELoss()
         if mode == 'g':
             x_hat, z, z_hat, feat_real, feat_fake = \
                 net_out['x_hat'], net_out['z'], net_out['z_hat'], net_out['feat_real'], net_out['feat_fake']
@@ -191,8 +190,28 @@ def ganomaly_loss(net_in, net_out, mode='g', w_adv=1, w_rec=50, w_enc=1, anomaly
             loss_g = w_adv * loss_adv + w_rec * loss_rec + w_enc * loss_enc
             return loss_g, loss_adv.item(), loss_rec.item(), loss_enc.item()
         else:
+            l_bce = nn.BCELoss()
             pred_real, pred_fake_detach = net_out['pred_real'], net_out['pred_fake_detach']
             real_label = torch.ones(size=(pred_real.shape[0],), dtype=torch.float32).cuda()
             fake_label = torch.zeros(size=(pred_fake_detach.shape[0],), dtype=torch.float32).cuda()
             loss_d = (l_bce(pred_real, real_label) + l_bce(pred_fake_detach, fake_label)) * 0.5
             return loss_d
+
+
+def constrained_ae_loss(net_in, net_out, anomaly_score=False, keepdim=False):
+    x_hat = net_out['x_hat']
+    z = net_out['z']
+    loss_x = (net_in - x_hat) ** 2
+
+    if anomaly_score:
+        return loss_x if keepdim else torch.mean(loss_x, dim=[1, 2, 3])
+    else:
+        z_rec = net_out['z_rec']
+        loss_z = (z - z_rec) ** 2
+        loss = loss_x.mean() + loss_z.mean()
+        return loss.mean(), loss_x.mean().item(), loss_z.mean().item()
+
+
+def fanogan_loss(net_in, net_out, mode='g', anomaly_score=False, keepdim=False):
+    # TODO
+    pass

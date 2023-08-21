@@ -10,9 +10,11 @@ from networks.mem_ae import MemAE
 from networks.aeu import AEU
 from networks.vae import VAE
 from networks.ganomaly import Ganomaly
+from networks.fanogan import FAnoGAN
+from networks.constrained_ae import ConstrainedAE
 
 from dataloaders.data_utils import get_transform, get_data_path
-from dataloaders.dataload import MedAD, BraTSAD
+from dataloaders.dataload import MedAD, BraTSAD, OCT2017, ColonAD
 import wandb
 from thop import profile
 # from utils.losses import ae_loss, aeu_loss, memae_loss, vae_loss, vae_loss_grad_elbo, vae_loss_grad_kl, vae_loss_grad_rec, vae_loss_grad_combi
@@ -50,7 +52,7 @@ class BaseWorker:
         torch.cuda.manual_seed_all(self.seed)
 
     def set_network_loss(self):
-        if self.opt.model['name'] == 'ae':
+        if self.opt.model['name'] == 'ae' or self.opt.model['name'] == 'ceae':
             self.net = AE(input_size=self.opt.model['input_size'], in_planes=self.opt.model['in_c'],
                           base_width=self.opt.model['base_width'], expansion=self.opt.model['expansion'],
                           mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
@@ -63,6 +65,12 @@ class BaseWorker:
                           mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
                           en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"])
             self.criterion = ae_loss_grad
+        elif self.opt.model['name'] == 'constrained-ae':
+            self.net = ConstrainedAE(input_size=self.opt.model['input_size'], in_planes=self.opt.model['in_c'],
+                                     base_width=self.opt.model['base_width'], expansion=self.opt.model['expansion'],
+                                     mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
+                                     en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"])
+            self.criterion = constrained_ae_loss
         elif self.opt.model['name'] == 'memae':
             self.net = MemAE(input_size=self.opt.model['input_size'], in_planes=self.opt.model['in_c'],
                              base_width=self.opt.model['base_width'], expansion=self.opt.model['expansion'],
@@ -99,6 +107,11 @@ class BaseWorker:
                                 mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
                                 en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"])
             self.criterion = ganomaly_loss
+        elif self.opt.model['name'] == 'fanogan':
+            self.net = FAnoGAN(input_size=self.opt.model['input_size'], in_planes=self.opt.model['in_c'],
+                               base_width=self.opt.model['base_width'], expansion=self.opt.model['expansion'],
+                               mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
+                               en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"])
         else:
             raise NotImplementedError("Unexpected model name: {}".format(self.opt.model['name']))
         self.net = self.net.cuda()
@@ -126,16 +139,29 @@ class BaseWorker:
         data_path = get_data_path(dataset=self.opt.dataset)
         train_transform = get_transform(self.opt, phase='train')
         test_transform = get_transform(self.opt, phase='test')
+
+        context_encoding = True if self.opt.model["name"] == "ceae" else False
+
         if self.opt.dataset in ['rsna', 'vin', 'brain', 'lag']:
             self.train_set = MedAD(main_path=data_path, img_size=self.opt.model['input_size'],
-                                   transform=train_transform, mode='train')
+                                   transform=train_transform, mode='train', context_encoding=context_encoding)
             self.test_set = MedAD(main_path=data_path, img_size=self.opt.model['input_size'], transform=test_transform,
                                   mode='test')
         elif self.opt.dataset == 'brats':
             self.train_set = BraTSAD(main_path=data_path, img_size=self.opt.model['input_size'],
-                                     transform=train_transform, istrain=True)
+                                     transform=train_transform, istrain=True, context_encoding=context_encoding)
             self.test_set = BraTSAD(main_path=data_path, img_size=self.opt.model['input_size'],
                                     transform=test_transform, istrain=False)
+        elif self.opt.dataset == "oct":
+            self.train_set = OCT2017(main_path=data_path, img_size=self.opt.model['input_size'],
+                                     transform=train_transform, mode='train')
+            self.test_set = OCT2017(main_path=data_path, img_size=self.opt.model['input_size'],
+                                    transform=test_transform, mode='test')
+        elif self.opt.dataset == "colon":
+            self.train_set = ColonAD(main_path=data_path, img_size=self.opt.model['input_size'],
+                                     transform=train_transform, mode='train')
+            self.test_set = ColonAD(main_path=data_path, img_size=self.opt.model['input_size'],
+                                    transform=test_transform, mode='test')
         else:
             raise Exception("Invalid dataset: {}".format(self.opt.dataset))
 
@@ -211,3 +237,23 @@ class BaseWorker:
         model_path = os.path.join(self.opt.train['save_dir'], "checkpoints", "model.pt")
         self.net.load_state_dict(torch.load(model_path, map_location=torch.device("cuda:{}".format(self.opt.gpu))))
         print("=> Load model from {}".format(model_path))
+
+    def run_eval(self):
+        results = self.evaluate()
+        metrics_save_path = os.path.join(self.opt.train['save_dir'], "metrics.txt")
+        with open(metrics_save_path, "w") as f:
+            for key, value in results.items():
+                f.write(str(key) + ": " + str(value) + "\n")
+                print(key + ": {:.4f}".format(value))
+
+    def evaluate(self):
+        if self.opt.dataset == "brats":
+            return self.evaluate_3d()
+        else:
+            return self.evaluate_2d()
+
+    def evaluate_2d(self) -> dict:
+        pass
+
+    def evaluate_3d(self) -> dict:
+        pass

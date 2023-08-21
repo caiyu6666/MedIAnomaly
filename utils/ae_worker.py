@@ -8,7 +8,6 @@ from sklearn import metrics
 
 from utils.base_worker import BaseWorker
 from utils.util import AverageMeter, calculate_threshold_fpr, calculate_dice_thr
-from torchvision.models import resnet18
 
 
 class AEWorker(BaseWorker):
@@ -31,12 +30,6 @@ class AEWorker(BaseWorker):
             self.optimizer.step()
             losses.update(loss.item(), img.size(0))
         return losses.avg
-
-    def evaluate(self):
-        if self.opt.dataset == "brats":
-            return self.evaluate_3d()
-        else:
-            return self.evaluate_2d()
 
     def evaluate_2d(self):
         self.net.eval()
@@ -99,7 +92,7 @@ class AEWorker(BaseWorker):
             mask = (mask.squeeze(0).unsqueeze(1).numpy() > 0).astype(np.uint8)
 
             volume.requires_grad = True
-            
+
             net_out = self.net(volume)
 
             anomaly_score_map = self.criterion(volume, net_out, anomaly_score=True, keepdim=True).detach()
@@ -235,11 +228,3 @@ class AEWorker(BaseWorker):
 
         self.save_checkpoint()
         self.logger.finish()
-
-    def run_eval(self):
-        results = self.evaluate()
-        metrics_save_path = os.path.join(self.opt.train['save_dir'], "metrics.txt")
-        with open(metrics_save_path, "w") as f:
-            for key, value in results.items():
-                f.write(str(key) + ": " + str(value) + "\n")
-                print(key + ": {:.4f}".format(value))

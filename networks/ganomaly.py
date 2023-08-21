@@ -19,7 +19,7 @@ class Encoder(nn.Module):
 
         self.linear_enc = nn.Sequential(
             nn.Linear((4 * base_width * expansion) * fm * fm, mid_num),
-            nn.BatchNorm1d(mid_num),
+            # nn.BatchNorm1d(mid_num),
             nn.ReLU(True),
             nn.Linear(mid_num, latent_size))
 
@@ -44,7 +44,7 @@ class Decoder(nn.Module):
         self.channels = 4 * base_width * expansion
         self.linear_dec = nn.Sequential(
             nn.Linear(latent_size, mid_num),
-            nn.BatchNorm1d(mid_num),
+            # nn.BatchNorm1d(mid_num),
             nn.ReLU(True),
             nn.Linear(mid_num, (4 * base_width * expansion) * self.fm * self.fm))
 
@@ -105,7 +105,7 @@ class Discriminator(nn.Module):
 
         self.features = nn.Sequential(
             nn.Linear((4 * base_width * expansion) * fm * fm, mid_num),
-            nn.BatchNorm1d(mid_num),
+            # nn.BatchNorm1d(mid_num),
             nn.ReLU(True),
         )
         self.classifier = nn.Sequential(
@@ -155,18 +155,20 @@ class Ganomaly(nn.Module):
                                   expansion=expansion, mid_num=mid_num, out_size=1, block_depth=de_num_layers)
         # netd output the prob.
 
-    def forward(self, x):
+    def forward(self, x, test=True):
         x_hat, z, z_hat = self.netg(x)
 
-        pred_real, feat_real = self.netd(x)
-        pred_fake, feat_fake = self.netd(x_hat)
-        pred_fake_detach, feat_fake_detach = self.netd(x_hat.detach())
-        return {'x_hat': x_hat, 'z': z, 'z_hat': z_hat, 'pred_real': pred_real, 'feat_real': feat_real,
-                'pred_fake': pred_fake, 'feat_fake': feat_fake,
-                'pred_fake_detach': pred_fake_detach, 'feat_fake_detach': feat_fake_detach}
+        if test:
+            return {'x_hat': x_hat, 'z': z, 'z_hat': z_hat}
+        else:
+            pred_real, feat_real = self.netd(x)
+            pred_fake, feat_fake = self.netd(x_hat)
+            pred_fake_detach, feat_fake_detach = self.netd(x_hat.detach())
+            return {'x_hat': x_hat, 'z': z, 'z_hat': z_hat, 'pred_real': pred_real, 'feat_real': feat_real,
+                    'pred_fake': pred_fake, 'feat_fake': feat_fake,
+                    'pred_fake_detach': pred_fake_detach, 'feat_fake_detach': feat_fake_detach}
 
     def reinit_d(self):
         """ Re-initialize the weights of netD
         """
         self.netd.apply(weights_init)
-        # print('   Reloading net d')

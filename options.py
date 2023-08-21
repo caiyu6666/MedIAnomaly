@@ -19,17 +19,18 @@ class Options:
         # self.tags = None
         # self.notes = None
 
-        self.epochs = {'rsna': 250, 'vin': 250, 'brain': 600, 'lag': 250, 'brats': 250}
+        self.epochs = {'rsna': 250, 'vin': 250, 'brain': 600, 'lag': 250, 'brats': 250,
+                       'oct': 250, 'colon': 250}
 
     def parse(self):
         """ Parse the options, replace the default value if there is a new input """
         parser = argparse.ArgumentParser(description='')
         parser.add_argument("-d", '--dataset', type=str, default='rsna', help='rsna, vin, brain, lag, brats')
         parser.add_argument("-g", '--gpu', type=int, default=6, help='select gpu devices')
-        # parser.add_argument("-p", '--project-name', type=str, default="MedIAnomaly", required=False,
-        #                     help='Name of the current project. eg, MedIAnomaly')
-        parser.add_argument("-p", '--project-name', type=str, default="tmp", required=False,
+        parser.add_argument("-p", '--project-name', type=str, default="MedIAnomaly-Method", required=False,
                             help='Name of the current project. eg, MedIAnomaly')
+        # parser.add_argument("-p", '--project-name', type=str, default="tmp", required=False,
+        #                     help='Name of the current project. eg, MedIAnomaly')
         parser.add_argument("-n", '--notes', type=str, default="default", required=False,
                             help='Notes of the current experiment. e.g., ae-architecture')
         parser.add_argument("-f", '--fold', type=int, default=0, help='0-4, five fold cross validation')

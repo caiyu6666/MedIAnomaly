@@ -27,7 +27,7 @@ class GanomalyWorker(BaseWorker):
             img = data_batch['img']
             img = img.cuda()
 
-            net_out = self.net(img)
+            net_out = self.net(img, test=False)
 
             loss_g, loss_adv, loss_rec, loss_enc = self.criterion(img, net_out, mode='g')
             self.optimizer_g.zero_grad()
@@ -83,14 +83,9 @@ class GanomalyWorker(BaseWorker):
         self.save_checkpoint()
         self.logger.finish()
 
-    def evaluate(self):
-        if self.opt.dataset == "brats":
-            return self.evaluate_3d()
-        else:
-            return self.evaluate_2d()
-
     def evaluate_2d(self):
-        self.net.eval()
+        # Notice! GANomaly uses the train mode for evaluation, so that the BN layers use the mean and variance of the
+        # testing sample.
 
         test_scores, test_labels = [], []
         with torch.no_grad():
@@ -115,7 +110,8 @@ class GanomalyWorker(BaseWorker):
         return results
 
     def evaluate_3d(self):
-        self.net.eval()
+        # Notice! GANomaly uses the train mode for evaluation, so that the BN layers use the mean and variance of the
+        # testing sample.
 
         test_scores, test_names, test_labels = [], [], []
 

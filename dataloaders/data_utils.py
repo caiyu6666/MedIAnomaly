@@ -10,7 +10,6 @@ def get_transform(opt, phase='train'):
 
 
 def get_data_path(dataset):
-    assert dataset in ['rsna', 'vin', 'brain', 'lag', 'brats']
     data_root = os.path.join(os.path.expanduser("~"), "Med-AD")
     if dataset == 'rsna':
         return os.path.join(data_root, "RSNA")
@@ -22,5 +21,9 @@ def get_data_path(dataset):
         return os.path.join(data_root, "LAG")
     elif dataset == 'brats':
         return os.path.join(data_root, "BraTS_AD")
+    elif dataset == 'oct':
+        return os.path.join(os.path.expanduser("~"), "datasets", "OCT2017")
+    elif dataset == 'colon':
+        return os.path.join(os.path.expanduser("~"), "datasets", "Colon_AD_public")
     else:
         raise Exception("Invalid dataset: {}".format(dataset))

@@ -1,8 +1,10 @@
-from utils.ae_worker import AEWorker
-from utils.memae_worker import MemAEWorker
-from utils.aeu_worker import AEUWorker
-from utils.vae_worker import VAEWorker
-from utils.ganomaly_worker import GanomalyWorker
+# from utils.ae_worker import AEWorker
+# from utils.memae_worker import MemAEWorker
+# from utils.aeu_worker import AEUWorker
+# from utils.vae_worker import VAEWorker
+# from utils.ganomaly_worker import GanomalyWorker
+# from utils.fanogan_worker import FanoGANWorker
+from utils import *
 from options import Options
 
 
@@ -14,11 +16,16 @@ def get_method(opt):
         return MemAEWorker(opt)
     elif opt.model['name'] == 'aeu':
         return AEUWorker(opt)
-    # elif opt.model['name'] == 'vae':
     elif 'vae' in opt.model['name']:
         return VAEWorker(opt)
+    elif opt.model['name'] == 'ceae':
+        return CeAEWorker(opt)
     elif opt.model['name'] == 'ganomaly':
         return GanomalyWorker(opt)
+    elif opt.model['name'] == 'fanogan':
+        return FanoGANWorker(opt)
+    elif opt.model['name'] == 'constrained-ae':
+        return ConstrainedAEWorker(opt)
     else:
         raise Exception("Invalid model name: {}".format(opt.model['name']))
 
