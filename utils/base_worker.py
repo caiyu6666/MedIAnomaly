@@ -17,7 +17,6 @@ from dataloaders.data_utils import get_transform, get_data_path
 from dataloaders.dataload import MedAD, BraTSAD, OCT2017, ColonAD
 import wandb
 from thop import profile
-# from utils.losses import ae_loss, aeu_loss, memae_loss, vae_loss, vae_loss_grad_elbo, vae_loss_grad_kl, vae_loss_grad_rec, vae_loss_grad_combi
 from utils.losses import *
 
 
