@@ -42,7 +42,8 @@ class Options:
 
         # Parameters only for reconstruction model
         parser.add_argument('--base-width', type=int, default=16,
-                            help='Base channels of CNN layers. Please fix, and adjust the expansion.')
+                            help='Base channels of CNN layers. Please do not modify this value, and adjust the '
+                                 'expansion instead.')
         parser.add_argument('--expansion', type=int, default=1, help='expansion of the base channels.')
         parser.add_argument('--hidden-num', type=int, default=1024, help='Hidden size of the bottleneck')
         parser.add_argument("-ls", '--latent-size', type=int, default=16,

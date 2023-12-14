@@ -279,13 +279,8 @@ class BaseWorker:
                 print(key + ": {:.4f}".format(value))
 
     def evaluate(self):
-        if self.opt.dataset == "brats":
-            return self.evaluate_pix()
-        else:
-            return self.evaluate_img()
+        pixel_metric = True if self.opt.dataset == "brats" else False
+        return self.eval_func(pixel_metric)
 
-    def evaluate_img(self) -> dict:
-        pass
-
-    def evaluate_pix(self) -> dict:
+    def eval_func(self, pixel_metric=False) -> dict:
         pass

@@ -83,9 +83,10 @@ class GanomalyWorker(BaseWorker):
         self.save_checkpoint()
         self.logger.finish()
 
-    def evaluate_img(self):
+    def eval_func(self, pixel_metric=False):
         # Notice! GANomaly uses the train mode for evaluation, so that the BN layers use the mean and variance of the
         # testing sample.
+        self.net.train()
 
         test_scores, test_labels = [], []
         with torch.no_grad():
@@ -108,38 +109,3 @@ class GanomalyWorker(BaseWorker):
         results = {'AUC': auc, "AP": ap}
 
         return results
-
-    def evaluate_pix(self):
-        # Notice! GANomaly uses the train mode for evaluation, so that the BN layers use the mean and variance of the
-        # testing sample.
-
-        # GANomaly does not support pixel-level anomaly score map.
-        self.evaluate_img()
-
-        # test_scores, test_names, test_labels = [], [], []
-        #
-        # with torch.no_grad():
-        #     for idx_batch, data_batch in enumerate(self.test_loader):
-        #         # test batch_size=1
-        #         volume, mask, name = data_batch['volume'], data_batch['mask'], data_batch['name']
-        #         # volume, mask: 1 x depth x H x W
-        #
-        #         volume = volume.cuda()
-        #         volume = volume.squeeze(0).unsqueeze(1)  # depth x 1 x H x W
-        #         label = (mask.squeeze(0).sum(-1).sum(-1).numpy() > 0).astype(np.uint8)
-        #
-        #         net_out = self.net(volume)
-        #
-        #         anomaly_score = self.criterion(volume, net_out, anomaly_score=True)
-        #         test_scores.append(anomaly_score.cpu())
-        #
-        #         test_labels.append(label)
-        #
-        # test_scores = np.concatenate(test_scores)
-        # test_labels = np.concatenate(test_labels)
-        #
-        # slice_auc = metrics.roc_auc_score(test_labels, test_scores)
-        # slice_ap = metrics.average_precision_score(test_labels, test_scores)
-        # results = {'Slice_AUC': slice_auc, "Slice_AP": slice_ap}
-        #
-        # return results

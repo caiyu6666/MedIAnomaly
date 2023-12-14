@@ -31,59 +31,7 @@ class AEWorker(BaseWorker):
             losses.update(loss.item(), img.size(0))
         return losses.avg
 
-    def evaluate_img(self):
-        self.net.eval()
-        self.close_network_grad()
-
-        test_imgs, test_imgs_hat, test_scores, test_score_maps, test_names, test_labels = [], [], [], [], [], []
-        # with torch.no_grad():
-        for idx_batch, data_batch in enumerate(self.test_loader):
-            # test batch_size=1
-            img, label, name = data_batch['img'], data_batch['label'], data_batch['name']
-            img = img.cuda()
-            img.requires_grad = True
-
-            net_out = self.net(img)
-
-            # anomaly_score = self.criterion(img, net_out, anomaly_score=True).detach().cpu()
-            anomaly_score_map = self.criterion(img, net_out, anomaly_score=True, keepdim=True).detach().cpu()
-            test_score_maps.append(anomaly_score_map)
-
-            anomaly_score = torch.mean(anomaly_score_map, dim=[1, 2, 3])
-            test_scores.append(anomaly_score)
-
-            test_labels.append(label.item())
-
-            if self.opt.test['save_flag']:
-                img_hat = net_out['x_hat']
-                test_names.append(name)
-                test_imgs.append(img.cpu())
-                test_imgs_hat.append(img_hat.cpu())
-
-        test_scores = torch.cat(test_scores, dim=0)  # N
-        test_score_maps = torch.cat(test_score_maps, dim=0)  # Nx1xHxW
-
-        if self.opt.test['save_flag']:
-            test_imgs = torch.cat(test_imgs, dim=0)
-            test_imgs_hat = torch.cat(test_imgs_hat, dim=0)
-            self.visualize_2d(test_imgs, test_imgs_hat, test_score_maps, test_names, test_labels)
-
-        # image-level metrics
-        test_labels = np.array(test_labels)
-        test_scores = test_scores.numpy()
-        auc = metrics.roc_auc_score(test_labels, test_scores)
-        ap = metrics.average_precision_score(test_labels, test_scores)
-
-        # others
-        test_normal_score = np.mean(test_scores[np.where(test_labels == 0)])
-        test_abnormal_score = np.mean(test_scores[np.where(test_labels == 1)])
-
-        results = {'AUC': auc, "AP": ap, "normal_score": test_normal_score, "abnormal_score": test_abnormal_score}
-
-        self.enable_network_grad()
-        return results
-
-    def evaluate_pix(self):
+    def eval_func(self, pixel_metric=False):
         self.net.eval()
         self.close_network_grad()
 
@@ -93,21 +41,18 @@ class AEWorker(BaseWorker):
         for idx_batch, data_batch in enumerate(self.test_loader):
             # test batch_size=1
             img, label, name = data_batch['img'], data_batch['label'], data_batch['name']
-            mask = data_batch['mask']  # 1xHxW (bs=1)
-
             img = img.cuda()
-            img.requires_grad = True  # only useful for gradient-based methods
+            img.requires_grad = True
 
             net_out = self.net(img)
 
             anomaly_score_map = self.criterion(img, net_out, anomaly_score=True, keepdim=True).detach().cpu()
             test_score_maps.append(anomaly_score_map)
 
-            anomaly_score = torch.mean(anomaly_score_map, dim=[1, 2, 3])
-            test_scores.append(anomaly_score)
-
             test_labels.append(label.item())
-            test_masks.append(mask)
+            if pixel_metric:
+                mask = data_batch['mask']
+                test_masks.append(mask)
 
             if self.opt.test['save_flag']:
                 img_hat = net_out['x_hat']
@@ -115,104 +60,37 @@ class AEWorker(BaseWorker):
                 test_imgs.append(img.cpu())
                 test_imgs_hat.append(img_hat.cpu())
 
-                # anomaly_score_map = self.criterion(img, net_out, anomaly_score=True, keepdim=True).detach()
-                # test_score_maps.append(anomaly_score_map.cpu())
-
-        test_scores = torch.cat(test_scores, dim=0)  # N
         test_score_maps = torch.cat(test_score_maps, dim=0)  # Nx1xHxW
-        test_masks = torch.cat(test_masks, dim=0).unsqueeze(1)  # NxHxW -> Nx1xHxW
+        test_scores = torch.mean(test_score_maps, dim=[1, 2, 3]).numpy()  # N
+
+        # image-level metrics
+        test_labels = np.array(test_labels)
+        auc = metrics.roc_auc_score(test_labels, test_scores)
+        ap = metrics.average_precision_score(test_labels, test_scores)
+        results = {'AUC': auc, "AP": ap}
+
+        # pixel-level metrics
+        if pixel_metric:
+            test_masks = torch.cat(test_masks, dim=0).unsqueeze(1)  # NxHxW -> Nx1xHxW
+            pix_ap = metrics.average_precision_score(test_masks.numpy().reshape(-1),
+                                                     test_score_maps.numpy().reshape(-1))
+            best_dice, best_thresh = compute_best_dice(test_score_maps.numpy(), test_masks.numpy())
+            results.update({'PixAP': pix_ap, 'BestDice': best_dice, 'BestThresh': best_thresh})
+        else:
+            test_masks = None
+
+        # others
+        test_normal_score = np.mean(test_scores[np.where(test_labels == 0)])
+        test_abnormal_score = np.mean(test_scores[np.where(test_labels == 1)])
+        results.update({"normal_score": test_normal_score, "abnormal_score": test_abnormal_score})
 
         if self.opt.test['save_flag']:
             test_imgs = torch.cat(test_imgs, dim=0)
             test_imgs_hat = torch.cat(test_imgs_hat, dim=0)
             self.visualize_2d(test_imgs, test_imgs_hat, test_score_maps, test_names, test_labels, test_masks)
 
-        # image-level metrics
-        test_labels = np.array(test_labels)
-        test_scores = test_scores.numpy()
-        auc = metrics.roc_auc_score(test_labels, test_scores)
-        ap = metrics.average_precision_score(test_labels, test_scores)
-
-        # pixel-level metrics
-        test_masks = (test_masks.numpy() > 0).astype(np.uint8)  # Nx1xHxW
-        test_score_maps = test_score_maps.numpy()
-        pix_ap = metrics.average_precision_score(test_masks.reshape(-1), test_score_maps.reshape(-1))
-        best_dice, best_thresh = compute_best_dice(test_score_maps, test_masks)
-
-        # others
-        test_normal_score = np.mean(test_scores[np.where(test_labels == 0)])
-        test_abnormal_score = np.mean(test_scores[np.where(test_labels == 1)])
-
-        results = {'AUC': auc, "AP": ap, 'PixAP': pix_ap, 'BestDice': best_dice, 'BestThresh': best_thresh,
-                   "normal_score": test_normal_score, "abnormal_score": test_abnormal_score}
-
         self.enable_network_grad()
         return results
-
-    # def evaluate_pix(self):
-    #     self.net.eval()
-    #     self.close_network_grad()
-    #
-    #     test_volumes, test_volumes_hat, test_scores, test_score_maps, test_names, test_masks = [], [], [], [], [], []
-    #
-    #     # with torch.no_grad():
-    #     for idx_batch, data_batch in enumerate(self.test_loader):
-    #         # test batch_size=1
-    #         volume, mask, name = data_batch['volume'], data_batch['mask'], data_batch['name']
-    #         # volume, mask: 1 x depth x H x W
-    #
-    #         volume = volume.cuda()
-    #         volume = volume.squeeze(0).unsqueeze(1)  # depth x 1 x H x W
-    #         mask = (mask.squeeze(0).unsqueeze(1).numpy() > 0).astype(np.uint8)
-    #
-    #         volume.requires_grad = True
-    #
-    #         net_out = self.net(volume)
-    #
-    #         anomaly_score_map = self.criterion(volume, net_out, anomaly_score=True, keepdim=True).detach()
-    #         test_score_maps.append(anomaly_score_map.cpu())
-    #
-    #         test_masks.append(mask)
-    #
-    #         if self.opt.test['save_flag']:
-    #             volume_hat = net_out['x_hat']
-    #             test_names.append(name)
-    #             test_volumes.append(volume.cpu())
-    #             test_volumes_hat.append(volume_hat.cpu())
-    #
-    #     score_concat = torch.cat(test_score_maps, dim=0)  # N x 1 x H x W
-    #
-    #     if self.opt.test['save_flag']:
-    #         test_volumes = torch.cat(test_volumes, dim=0)
-    #         test_volumes_hat = torch.cat(test_volumes_hat, dim=0)
-    #
-    #         self.visualize_3d(test_volumes, test_volumes_hat, score_concat, test_masks, test_names)
-    #
-    #     score_concat = np.array(score_concat)  # N x 1 x H x W
-    #     true_concat = np.concatenate(test_masks, axis=0).astype(np.uint8)
-    #
-    #     y_score_slice = score_concat.mean(-1).mean(-1).reshape(-1)
-    #     y_true_slice = (true_concat.sum(-1).sum(-1).reshape(-1) > 0).astype(np.uint8)
-    #
-    #     slice_auc = metrics.roc_auc_score(y_true_slice, y_score_slice)
-    #     slice_ap = metrics.average_precision_score(y_true_slice, y_score_slice)
-    #
-    #     fpr01, threshold_at_fpr01 = calculate_threshold_fpr(true_concat, score_concat, target_fpr=0.001)  # 0.1%FPR
-    #     fpr1, threshold_at_fpr1 = calculate_threshold_fpr(true_concat, score_concat, target_fpr=0.01)  # 1%FPR
-    #     fpr5, threshold_at_fpr5 = calculate_threshold_fpr(true_concat, score_concat, target_fpr=0.05)  # 5%FPR
-    #
-    #     dice01 = calculate_dice_thr(test_masks, test_score_maps, threshold=threshold_at_fpr01)
-    #     dice1 = calculate_dice_thr(test_masks, test_score_maps, threshold=threshold_at_fpr1)
-    #     dice5 = calculate_dice_thr(test_masks, test_score_maps, threshold=threshold_at_fpr5)
-    #     # print("At FPR: {:4f}, threshold is {:.5f} || DICE: {}".format(fpr01, threshold_at_fpr01, dice01))
-    #     # print("At FPR: {:4f}, threshold is {:.5f} || DICE: {}".format(fpr1, threshold_at_fpr1, dice1))
-    #     # print("At FPR: {:4f}, threshold is {:.5f} || DICE: {}".format(fpr5, threshold_at_fpr5, dice5))
-    #     # print()
-    #     results = {"Dice_FPR0.1%": dice01, "Dice_FPR1%": dice1, "Dice_FPR5%": dice5, "Slice_AUC": slice_auc,
-    #                "Slice_AP": slice_ap}
-    #
-    #     self.enable_network_grad()
-    #     return results
 
     def visualize_2d(self, imgs, imgs_hat, score_maps, names, labels, masks=None):
         imgs = (imgs + 1) / 2

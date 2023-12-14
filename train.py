@@ -17,8 +17,6 @@ def get_method(opt):
         return CeAEWorker(opt)
     elif opt.model['name'] == 'ganomaly':
         return GanomalyWorker(opt)
-    elif opt.model['name'] == 'fanogan':
-        return FanoGANWorker(opt)
     elif opt.model['name'] == 'constrained-ae':
         return ConstrainedAEWorker(opt)
     else:
