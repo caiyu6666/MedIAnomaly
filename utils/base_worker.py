@@ -10,11 +10,10 @@ from networks.mem_ae import MemAE
 from networks.aeu import AEU
 from networks.vae import VAE
 from networks.ganomaly import Ganomaly
-from networks.fanogan import FAnoGAN
 from networks.constrained_ae import ConstrainedAE
 
 from dataloaders.data_utils import get_transform, get_data_path
-from dataloaders.dataload import MedAD, BraTSAD, OCT2017, ColonAD
+from dataloaders.dataload import MedAD, BraTSAD, OCT2017, ColonAD, ISIC2018, CpChildA, Camelyon16AD
 import wandb
 from thop import profile
 from utils.losses import *
@@ -51,12 +50,25 @@ class BaseWorker:
         torch.cuda.manual_seed_all(self.seed)
 
     def set_network_loss(self):
-        if self.opt.model['name'] == 'ae' or self.opt.model['name'] == 'ceae':
+        if self.opt.model['name'] == 'ae' or self.opt.model['name'] == 'ceae' or self.opt.model['name'] == 'ae-ssim' \
+                or self.opt.model['name'] == 'ae-l1':
             self.net = AE(input_size=self.opt.model['input_size'], in_planes=self.opt.model['in_c'],
                           base_width=self.opt.model['base_width'], expansion=self.opt.model['expansion'],
                           mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
                           en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"])
             # self.criterion = l2_loss
+            if self.opt.model['name'] == 'ae-ssim':
+                self.criterion = ssim_loss
+            elif self.opt.model['name'] == 'ae-l1':
+                self.criterion = l1_loss
+            else:
+                self.criterion = ae_loss
+        elif self.opt.model['name'] == 'ae-spatial':
+            self.net = AE(input_size=self.opt.model['input_size'], in_planes=self.opt.model['in_c'],
+                          base_width=self.opt.model['base_width'], expansion=self.opt.model['expansion'],
+                          mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
+                          en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"],
+                          spatial=True)
             self.criterion = ae_loss
         elif self.opt.model['name'] == 'ae-grad':
             self.net = AE(input_size=self.opt.model['input_size'], in_planes=self.opt.model['in_c'],
@@ -106,26 +118,9 @@ class BaseWorker:
                                 mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
                                 en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"])
             self.criterion = ganomaly_loss
-        elif self.opt.model['name'] == 'fanogan':
-            self.net = FAnoGAN(input_size=self.opt.model['input_size'], in_planes=self.opt.model['in_c'],
-                               base_width=self.opt.model['base_width'], expansion=self.opt.model['expansion'],
-                               mid_num=self.opt.model['hidden_num'], latent_size=self.opt.model['ls'],
-                               en_num_layers=self.opt.model["en_depth"], de_num_layers=self.opt.model["de_depth"])
         else:
             raise NotImplementedError("Unexpected model name: {}".format(self.opt.model['name']))
         self.net = self.net.cuda()
-
-    # def set_loss(self):
-    #     if self.opt.train['loss'] == 'l2':
-    #         self.criterion = l2_loss
-    #     elif self.opt.train['loss'] == 'l1':
-    #         self.criterion = l1_loss
-    #     elif self.opt.train['loss'] == 'aeu_loss':
-    #         self.criterion = aeu_loss
-    #     elif self.opt.train['loss'] == 'memae_loss':
-    #         self.criterion = memae_loss
-    #     else:
-    #         raise NotImplementedError("Unexpected loss function: {}".format(self.opt.train['loss']))
 
     def set_optimizer(self):
         self.optimizer = torch.optim.Adam(self.net.parameters(), self.opt.train['lr'],
@@ -146,11 +141,27 @@ class BaseWorker:
                                    transform=train_transform, mode='train', context_encoding=context_encoding)
             self.test_set = MedAD(main_path=data_path, img_size=self.opt.model['input_size'], transform=test_transform,
                                   mode='test')
+        # elif self.opt.dataset == 'brats':
+        #     self.train_set = BraTSAD(main_path=data_path, img_size=self.opt.model['input_size'],
+        #                              transform=train_transform, istrain=True, context_encoding=context_encoding)
+        #     self.test_set = BraTSAD(main_path=data_path, img_size=self.opt.model['input_size'],
+        #                             transform=test_transform, istrain=False)
         elif self.opt.dataset == 'brats':
             self.train_set = BraTSAD(main_path=data_path, img_size=self.opt.model['input_size'],
-                                     transform=train_transform, istrain=True, context_encoding=context_encoding)
+                                     transform=train_transform, mode='train', context_encoding=context_encoding)
             self.test_set = BraTSAD(main_path=data_path, img_size=self.opt.model['input_size'],
-                                    transform=test_transform, istrain=False)
+                                    transform=test_transform, mode='test')
+        elif self.opt.dataset == 'c16':
+            self.train_set = Camelyon16AD(main_path=data_path, img_size=self.opt.model['input_size'],
+                                          transform=train_transform, mode='train', n_channel=self.opt.model["in_c"],
+                                          context_encoding=context_encoding)
+            self.test_set = Camelyon16AD(main_path=data_path, img_size=self.opt.model['input_size'],
+                                         transform=test_transform, mode='test', n_channel=self.opt.model["in_c"])
+        elif self.opt.dataset == "isic":
+            self.train_set = ISIC2018(main_path=data_path, img_size=self.opt.model['input_size'],
+                                      transform=train_transform, mode='train', context_encoding=context_encoding)
+            self.test_set = ISIC2018(main_path=data_path, img_size=self.opt.model['input_size'],
+                                     transform=test_transform, mode='test')
         elif self.opt.dataset == "oct":
             self.train_set = OCT2017(main_path=data_path, img_size=self.opt.model['input_size'],
                                      transform=train_transform, mode='train')
@@ -158,9 +169,14 @@ class BaseWorker:
                                     transform=test_transform, mode='test')
         elif self.opt.dataset == "colon":
             self.train_set = ColonAD(main_path=data_path, img_size=self.opt.model['input_size'],
-                                     transform=train_transform, mode='train')
+                                     transform=train_transform, mode='train', n_channel=self.opt.model["in_c"])
             self.test_set = ColonAD(main_path=data_path, img_size=self.opt.model['input_size'],
-                                    transform=test_transform, mode='test')
+                                    transform=test_transform, mode='test', n_channel=self.opt.model["in_c"])
+        elif self.opt.dataset == 'cpchild':
+            self.train_set = CpChildA(main_path=data_path, img_size=self.opt.model['input_size'],
+                                      transform=train_transform, mode='train')
+            self.test_set = CpChildA(main_path=data_path, img_size=self.opt.model['input_size'],
+                                     transform=test_transform, mode='test')
         else:
             raise Exception("Invalid dataset: {}".format(self.opt.dataset))
 
@@ -201,7 +217,6 @@ class BaseWorker:
             self.logger = wandb.init(project=self.opt.project_name, config=exp_configs)
         print("============= Configurations =============")
         for key, values in exp_configs.items():
-            # print(key + ":" + str(values), end=" | ")
             print(key + ":" + str(values))
         print()
 
@@ -220,9 +235,27 @@ class BaseWorker:
         if self.opt.dataset in ['rsna', 'vin', 'brain', 'lag']:
             self.test_set = MedAD(main_path=data_path, img_size=self.opt.model['input_size'], transform=test_transform,
                                   mode='test')
+        # elif self.opt.dataset == 'brats':
+        #     self.test_set = BraTSAD(main_path=data_path, img_size=self.opt.model['input_size'],
+        #                             transform=test_transform, istrain=False)
         elif self.opt.dataset == 'brats':
             self.test_set = BraTSAD(main_path=data_path, img_size=self.opt.model['input_size'],
-                                    transform=test_transform, istrain=False)
+                                    transform=test_transform, mode='test')
+        elif self.opt.dataset == 'c16':
+            self.test_set = Camelyon16AD(main_path=data_path, img_size=self.opt.model['input_size'],
+                                         transform=test_transform, mode='test', n_channel=self.opt.model["in_c"])
+        elif self.opt.dataset == "oct":
+            self.test_set = OCT2017(main_path=data_path, img_size=self.opt.model['input_size'],
+                                    transform=test_transform, mode='test')
+        elif self.opt.dataset == "colon":
+            self.test_set = ColonAD(main_path=data_path, img_size=self.opt.model['input_size'],
+                                    transform=test_transform, mode='test', n_channel=self.opt.model["in_c"])
+        elif self.opt.dataset == "isic":
+            self.test_set = ISIC2018(main_path=data_path, img_size=self.opt.model['input_size'],
+                                     transform=test_transform, mode='test')
+        elif self.opt.dataset == 'cpchild':
+            self.test_set = CpChildA(main_path=data_path, img_size=self.opt.model['input_size'],
+                                     transform=test_transform, mode='test')
         else:
             raise Exception("Invalid dataset: {}".format(self.opt.dataset))
         self.test_loader = DataLoader(self.test_set, batch_size=1, shuffle=False)
@@ -247,12 +280,12 @@ class BaseWorker:
 
     def evaluate(self):
         if self.opt.dataset == "brats":
-            return self.evaluate_3d()
+            return self.evaluate_pix()
         else:
-            return self.evaluate_2d()
+            return self.evaluate_img()
 
-    def evaluate_2d(self) -> dict:
+    def evaluate_img(self) -> dict:
         pass
 
-    def evaluate_3d(self) -> dict:
+    def evaluate_pix(self) -> dict:
         pass

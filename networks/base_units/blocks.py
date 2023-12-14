@@ -131,6 +131,30 @@ class BottleNeck(nn.Module):
         return {'out': out, 'z': z}
 
 
+class SpatialBottleNeck(nn.Module):
+    def __init__(self, in_planes, feature_size, mid_num=2048, latent_size=16):
+        super(SpatialBottleNeck, self).__init__()
+        self.in_planes = in_planes
+        self.feature_size = feature_size
+        self.linear_enc = nn.Sequential(
+            nn.Conv2d(in_channels=in_planes, out_channels=mid_num, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(mid_num),
+            nn.ReLU(True),
+            nn.Conv2d(in_channels=mid_num, out_channels=latent_size, kernel_size=1, stride=1, padding=0, bias=False))
+
+        self.linear_dec = nn.Sequential(
+            nn.Conv2d(in_channels=latent_size, out_channels=mid_num, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(mid_num),
+            nn.ReLU(True),
+            nn.Conv2d(in_channels=mid_num, out_channels=in_planes, kernel_size=1, stride=1, padding=0, bias=False),)
+
+    def forward(self, x):
+        z = self.linear_enc(x)
+        out = self.linear_dec(z)
+
+        return {'out': out, 'z': z}
+
+
 class MemBottleNeck(BottleNeck):
     def __init__(self, in_planes, feature_size, mid_num=2048, latent_size=16, mem_size=25, shrink_thres=0.0025):
         super(MemBottleNeck, self).__init__(in_planes, feature_size, mid_num, latent_size)

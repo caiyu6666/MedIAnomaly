@@ -1,16 +1,11 @@
-# from utils.ae_worker import AEWorker
-# from utils.memae_worker import MemAEWorker
-# from utils.aeu_worker import AEUWorker
-# from utils.vae_worker import VAEWorker
-# from utils.ganomaly_worker import GanomalyWorker
-# from utils.fanogan_worker import FanoGANWorker
 from utils import *
 from options import Options
 
 
 def get_method(opt):
     print("=> Running Method: {}".format(opt.model['name']))
-    if opt.model['name'] == 'ae' or opt.model['name'] == 'ae-grad':
+    if opt.model['name'] == 'ae' or opt.model['name'] == 'ae-grad' or opt.model['name'] == 'ae-spatial' \
+            or opt.model['name'] == 'ae-ssim' or opt.model['name'] == 'ae-l1':
         return AEWorker(opt)
     elif opt.model['name'] == 'memae':
         return MemAEWorker(opt)

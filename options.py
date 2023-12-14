@@ -21,21 +21,23 @@ class Options:
 
         self.epochs = {'rsna': 250, 'vin': 250, 'brain': 600, 'lag': 250, 'brats': 250,
                        'oct': 250, 'colon': 250}
+        self.in_c = {'c16': 3, 'colon': 1}
 
     def parse(self):
         """ Parse the options, replace the default value if there is a new input """
         parser = argparse.ArgumentParser(description='')
-        parser.add_argument("-d", '--dataset', type=str, default='rsna', help='rsna, vin, brain, lag, brats')
+        parser.add_argument("-d", '--dataset', type=str, default='rsna',
+                            help='rsna, vin, brain, lag, brats, oct, colon, isic')
         parser.add_argument("-g", '--gpu', type=int, default=6, help='select gpu devices')
-        parser.add_argument("-p", '--project-name', type=str, default="MedIAnomaly-Method", required=False,
-                            help='Name of the current project. eg, MedIAnomaly')
-        # parser.add_argument("-p", '--project-name', type=str, default="tmp", required=False,
+        # parser.add_argument("-p", '--project-name', type=str, default="MedIAnomaly-Method", required=False,
         #                     help='Name of the current project. eg, MedIAnomaly')
+        parser.add_argument("-p", '--project-name', type=str, default="tmp", required=False,
+                            help='Name of the current project. eg, MedIAnomaly')
         parser.add_argument("-n", '--notes', type=str, default="default", required=False,
                             help='Notes of the current experiment. e.g., ae-architecture')
-        parser.add_argument("-f", '--fold', type=int, default=0, help='0-4, five fold cross validation')
+        parser.add_argument("-f", '--fold', type=str, default='0', help='0-4, five fold cross validation')
         parser.add_argument("-m", '--model-name', type=str, default='ae', help='ae, aeu, memae')
-        parser.add_argument('--in-c', type=int, default=1, help='input channel')
+        # parser.add_argument('--in-c', type=int, default=1, help='input channel')
         parser.add_argument('--input-size', type=int, default=64, help='input size of the image')
 
         # Parameters only for reconstruction model
@@ -47,9 +49,10 @@ class Options:
                             help='latent size of the reconstruction model')
         parser.add_argument('--en-depth', type=int, default=1, help='Depth of each encoder block')
         parser.add_argument('--de-depth', type=int, default=1, help='Depth of each decoder block')
+        # parser.add_argument('--spatial', action='store_true')  # only for AE
 
         parser.add_argument('--train-epochs', type=int, default=250, help='number of training epochs')
-        parser.add_argument('--train-eval-freq', type=int, default=10, help='epoch to evaluate')
+        parser.add_argument('--train-eval-freq', type=int, default=25, help='epoch to evaluate')
         parser.add_argument('--train-batch-size', type=int, default=64, help='batch size')
         parser.add_argument('--train-lr', type=float, default=1e-3, help='initial learning rate')
         parser.add_argument('--train-weight-decay', type=float, default=0, help='weight decay')
@@ -67,9 +70,10 @@ class Options:
         self.project_name = args.project_name
         self.fold = args.fold
         self.result_dir = os.path.expanduser("~") + f'/Experiment/MedIAnomaly/{self.dataset}'
+        # self.result_dir = os.path.expanduser("~") + f'/Experiment/Latent/{self.dataset}'
 
         self.model['name'] = args.model_name
-        self.model['in_c'] = args.in_c
+        self.model['in_c'] = self.in_c.setdefault(self.dataset, 1)
         self.model['input_size'] = args.input_size
 
         # Parameters only for reconstruction model
@@ -79,10 +83,12 @@ class Options:
         self.model['ls'] = args.latent_size
         self.model['en_depth'] = args.en_depth
         self.model['de_depth'] = args.de_depth
+        # self.model['spatial'] = args.spatial
 
         # --- training params --- #
-        self.train['save_dir'] = '{:s}/{:s}/fold_{:d}'.format(self.result_dir, self.model['name'], self.fold)
-        self.train['epochs'] = self.epochs[self.dataset]
+        self.train['save_dir'] = '{}/{}/fold_{}'.format(self.result_dir, self.model['name'], self.fold)
+        # self.train['epochs'] = self.epochs[self.dataset]
+        self.train['epochs'] = self.epochs.setdefault(self.dataset, 250)
         self.train['eval_freq'] = args.train_eval_freq
         self.train['batch_size'] = args.train_batch_size
         self.train['lr'] = args.train_lr

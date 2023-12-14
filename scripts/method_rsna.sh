@@ -3,9 +3,10 @@
 # shellcheck disable=SC1073
 
 num_repeat=3
+data='rsna'
+gpu=4
 
 # shellcheck disable=SC2004
 for((i=0;i<$num_repeat;i=i+1));do
-python train.py -m constrained-ae --input-size 64 -ls 16 --en-depth 1 --de-depth 1 -d rsna -g 6 -f $i;
-python train.py -m ceae --input-size 64 -ls 16 --en-depth 1 --de-depth 1 -d rsna -g 6 -f $i;
+python train.py -m ae-l1 -d $data -g $gpu -f $i;
 done

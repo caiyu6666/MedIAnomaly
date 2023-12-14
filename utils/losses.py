@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from utils.util import ssim
+
 
 # def l2_loss(net_in, net_out, keepdim=False, anomaly_score=False):
 #     rec = net_out['x_hat']
@@ -19,6 +22,31 @@ import torch.nn as nn
 #         return torch.mean(loss, dim=[1, 2, 3])
 #     else:
 #         return loss if keepdim else loss.mean()
+def ssim_loss(net_in, net_out, win_size=11, keepdim=False, anomaly_score=False):
+    x_hat = net_out['x_hat']
+
+    net_in = ((net_in + 1) / 2.0).clamp(0., 1.)
+    x_hat = ((x_hat + 1) / 2.0).clamp(0., 1.)  # Normalize to [0, 1] for computing SSIM.
+
+    # net_in = F.pad(net_in, (win_size//2, win_size//2, win_size//2, win_size//2))
+    # x_hat = F.pad(x_hat, (win_size//2, win_size//2, win_size//2, win_size//2))  # padding for outputting the same size
+
+    loss = 1. - ssim(net_in, x_hat, data_range=1., size_average=False, win_size=win_size)
+    if anomaly_score:
+        return F.interpolate(loss, size=net_in.shape[-2:], mode='bilinear') if keepdim else \
+            torch.mean(loss, dim=[1, 2, 3])
+    else:
+        return loss.mean()
+
+
+def l1_loss(net_in, net_out, anomaly_score=False, keepdim=False):
+    x_hat = net_out['x_hat']
+    loss = torch.abs(net_in - x_hat)
+
+    if anomaly_score:
+        return torch.mean(loss, dim=[1], keepdim=True) if keepdim else torch.mean(loss, dim=[1, 2, 3])
+    else:
+        return loss.mean()
 
 
 def ae_loss(net_in, net_out, anomaly_score=False, keepdim=False):
@@ -26,7 +54,7 @@ def ae_loss(net_in, net_out, anomaly_score=False, keepdim=False):
     loss = (net_in - x_hat) ** 2
 
     if anomaly_score:
-        return loss if keepdim else torch.mean(loss, dim=[1, 2, 3])
+        return torch.mean(loss, dim=[1], keepdim=True) if keepdim else torch.mean(loss, dim=[1, 2, 3])
     else:
         return loss.mean()
 
@@ -37,7 +65,7 @@ def ae_loss_grad(net_in, net_out, anomaly_score=False, keepdim=False):
 
     if anomaly_score:
         grad = torch.abs(torch.autograd.grad(loss.mean(), net_in)[0])
-        return grad if keepdim else torch.mean(grad, dim=[1, 2, 3])
+        return torch.mean(grad, dim=[1], keepdim=True) if keepdim else torch.mean(grad, dim=[1, 2, 3])
     else:
         return loss.mean()
 
@@ -52,7 +80,7 @@ def aeu_loss(net_in, net_out, anomaly_score=False, keepdim=False):
     loss = loss1 + log_var
 
     if anomaly_score:
-        return loss1 if keepdim else torch.mean(loss1, dim=[1, 2, 3])
+        return torch.mean(loss1, dim=[1], keepdim=True) if keepdim else torch.mean(loss1, dim=[1, 2, 3])
     else:
         return loss.mean(), recon_loss.mean().item(), log_var.mean().item()
 
@@ -95,7 +123,7 @@ def memae_loss(net_in, net_out, entropy_loss_weight=0.0002, anomaly_score=False,
     loss = recon_loss.mean() + entropy_loss_weight * entro_loss
 
     if anomaly_score:
-        return recon_loss if keepdim else torch.mean(recon_loss, dim=[1, 2, 3])
+        return torch.mean(recon_loss, dim=[1], keepdim=True) if keepdim else torch.mean(recon_loss, dim=[1, 2, 3])
     else:
         return loss, recon_loss.mean().item(), entro_loss.item()
 
@@ -110,7 +138,7 @@ def vae_loss(net_in, net_out, kl_weight=0.005, anomaly_score=False, keepdim=Fals
     loss = recon_loss.mean() + kl_weight * kl_loss.mean()
 
     if anomaly_score:
-        return recon_loss if keepdim else torch.mean(recon_loss, dim=[1, 2, 3])
+        return torch.mean(recon_loss, dim=[1], keepdim=True) if keepdim else torch.mean(recon_loss, dim=[1, 2, 3])
     else:
         return loss, recon_loss.mean().item(), kl_loss.mean().item()
 
@@ -124,7 +152,7 @@ def vae_loss_grad_elbo(net_in, net_out, kl_weight=0.005, anomaly_score=False, ke
 
     if anomaly_score:
         grad = torch.abs(torch.autograd.grad(loss, net_in)[0])
-        return grad if keepdim else torch.mean(grad, dim=[1, 2, 3])
+        return torch.mean(grad, dim=[1], keepdim=True) if keepdim else torch.mean(grad, dim=[1, 2, 3])
     else:
         return loss, recon_loss.mean().item(), kl_loss.mean().item()
 
@@ -138,7 +166,7 @@ def vae_loss_grad_rec(net_in, net_out, kl_weight=0.005, anomaly_score=False, kee
 
     if anomaly_score:
         grad = torch.abs(torch.autograd.grad(recon_loss.mean(), net_in)[0])
-        return grad if keepdim else torch.mean(grad, dim=[1, 2, 3])
+        return torch.mean(grad, dim=[1], keepdim=True) if keepdim else torch.mean(grad, dim=[1, 2, 3])
     else:
         return loss, recon_loss.mean().item(), kl_loss.mean().item()
 
@@ -152,7 +180,7 @@ def vae_loss_grad_kl(net_in, net_out, kl_weight=0.005, anomaly_score=False, keep
 
     if anomaly_score:
         grad = torch.abs(torch.autograd.grad(kl_loss.mean(), net_in)[0])
-        return grad if keepdim else torch.mean(grad, dim=[1, 2, 3])
+        return torch.mean(grad, dim=[1], keepdim=True) if keepdim else torch.mean(grad, dim=[1, 2, 3])
     else:
         return loss, recon_loss.mean().item(), kl_loss.mean().item()
 
@@ -168,7 +196,7 @@ def vae_loss_grad_combi(net_in, net_out, kl_weight=0.005, anomaly_score=False, k
     if anomaly_score:
         kl_grad = torch.abs(torch.autograd.grad(kl_loss.mean(), net_in)[0])
         combi = recon_loss * kl_grad
-        return combi if keepdim else torch.mean(combi, dim=[1, 2, 3])
+        return torch.mean(combi, dim=[1], keepdim=True) if keepdim else torch.mean(combi, dim=[1, 2, 3])
     else:
         return loss, recon_loss.mean().item(), kl_loss.mean().item()
 
@@ -204,14 +232,9 @@ def constrained_ae_loss(net_in, net_out, anomaly_score=False, keepdim=False):
     loss_x = (net_in - x_hat) ** 2
 
     if anomaly_score:
-        return loss_x if keepdim else torch.mean(loss_x, dim=[1, 2, 3])
+        return torch.mean(loss_x, dim=[1], keepdim=True) if keepdim else torch.mean(loss_x, dim=[1, 2, 3])
     else:
         z_rec = net_out['z_rec']
         loss_z = (z - z_rec) ** 2
         loss = loss_x.mean() + loss_z.mean()
         return loss.mean(), loss_x.mean().item(), loss_z.mean().item()
-
-
-def fanogan_loss(net_in, net_out, mode='g', anomaly_score=False, keepdim=False):
-    # TODO
-    pass
