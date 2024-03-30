@@ -160,31 +160,6 @@ class VAELoss(nn.Module):
             return loss, recon_loss.mean().item(), kl_loss.mean().item()
 
 
-# def ganomaly_loss(net_in, net_out, mode='g', w_adv=1, w_rec=50, w_enc=1, anomaly_score=False):
-#     assert mode in ['g', 'd']  # compute loss of generator or discriminator
-#
-#     if anomaly_score:
-#         z, z_hat = net_out['z'], net_out['z_hat']
-#         return torch.mean((z - z_hat) ** 2, dim=1)
-#     else:
-#         if mode == 'g':
-#             x_hat, z, z_hat, feat_real, feat_fake = \
-#                 net_out['x_hat'], net_out['z'], net_out['z_hat'], net_out['feat_real'], net_out['feat_fake']
-#             loss_adv = torch.mean((feat_real - feat_fake) ** 2)
-#             loss_rec = torch.mean((net_in - x_hat) ** 2)
-#             loss_enc = torch.mean((z - z_hat) ** 2)
-#
-#             loss_g = w_adv * loss_adv + w_rec * loss_rec + w_enc * loss_enc
-#             return loss_g, loss_adv.item(), loss_rec.item(), loss_enc.item()
-#         else:
-#             l_bce = nn.BCELoss()
-#             pred_real, pred_fake_detach = net_out['pred_real'], net_out['pred_fake_detach']
-#             real_label = torch.ones(size=(pred_real.shape[0],), dtype=torch.float32).cuda()
-#             fake_label = torch.zeros(size=(pred_fake_detach.shape[0],), dtype=torch.float32).cuda()
-#             loss_d = (l_bce(pred_real, real_label) + l_bce(pred_fake_detach, fake_label)) * 0.5
-#             return loss_d
-
-
 class GANomalyLoss(nn.Module):
     def __init__(self):
         super(GANomalyLoss, self).__init__()
