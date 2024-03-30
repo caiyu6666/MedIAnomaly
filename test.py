@@ -1,5 +1,4 @@
 from train import get_method
-# from utils.ae_worker import AEWorker
 from options import Options
 
 

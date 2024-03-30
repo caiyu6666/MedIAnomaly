@@ -1,6 +1,5 @@
 import os
 import argparse
-from dataloaders.data_utils import get_transform
 
 
 class Options:
@@ -41,7 +40,6 @@ class Options:
                             help='Notes of the current experiment. e.g., ae-architecture')
         parser.add_argument("-f", '--fold', type=str, default='0', help='0-4, five fold cross validation')
         parser.add_argument("-m", '--model-name', type=str, default='ae', help='ae, aeu, memae')
-        # parser.add_argument('--in-c', type=int, default=1, help='input channel')
         parser.add_argument('--input-size', type=int, default=64, help='input size of the image')
 
         # Parameters only for reconstruction model
@@ -54,7 +52,6 @@ class Options:
                             help='latent size of the reconstruction model')
         parser.add_argument('--en-depth', type=int, default=1, help='Depth of each encoder block')
         parser.add_argument('--de-depth', type=int, default=1, help='Depth of each decoder block')
-        # parser.add_argument('--spatial', action='store_true')  # only for AE
 
         parser.add_argument('--train-epochs', type=int, default=250, help='number of training epochs')
         parser.add_argument('--train-eval-freq', type=int, default=25, help='epoch to evaluate')
@@ -70,12 +67,9 @@ class Options:
 
         self.gpu = args.gpu
         self.dataset = args.dataset
-        # self.notes = args.notes
-        # self.tags = args.tags
         self.project_name = args.project_name
         self.fold = args.fold
         self.result_dir = os.path.expanduser("~") + f'/Experiment/MedIAnomaly/{self.dataset}'
-        # self.result_dir = os.path.expanduser("~") + f'/Experiment/Latent/{self.dataset}'
 
         self.model['name'] = args.model_name
         self.model['in_c'] = self.in_c.setdefault(self.dataset, 1)
@@ -88,31 +82,21 @@ class Options:
         self.model['ls'] = args.latent_size
         self.model['en_depth'] = args.en_depth
         self.model['de_depth'] = args.de_depth
-        # self.model['spatial'] = args.spatial
 
         # --- training params --- #
         self.train['save_dir'] = '{}/{}/fold_{}'.format(self.result_dir, self.model['name'], self.fold)
-        # self.train['epochs'] = self.epochs[self.dataset]
         self.train['epochs'] = self.epochs.setdefault(self.dataset, 250)
         self.train['eval_freq'] = args.train_eval_freq
         self.train['batch_size'] = args.train_batch_size
         self.train['lr'] = args.train_lr
         self.train['weight_decay'] = args.train_weight_decay
         self.train['seed'] = args.train_seed
-        # self.train['loss'] = args.train_loss
 
         # --- test parameters --- #
-        # self.test['test_epoch'] = args.test_test_epoch
         self.test['save_flag'] = args.test_save_flag
         self.test['save_dir'] = '{:s}/test_results'.format(self.train['save_dir'])
         if not args.test_model_path:
-            # self.test['model_path'] = '{:s}/checkpoints/checkpoint_{:d}.pth.tar'.format(self.train['save_dir'],
-            #                                                                             self.test['test_epoch'])
             self.test['model_path'] = '{:s}/checkpoints/model.pth'.format(self.train['save_dir'])
-
-        # # define data transforms for training
-        # self.transform['train'] = get_transform(self)
-        # self.transform['test'] = get_transform(self, 'test')
 
     def save_options(self):
         if not os.path.exists(self.train['save_dir']):

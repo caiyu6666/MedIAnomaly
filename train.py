@@ -5,8 +5,6 @@ from options import Options
 def get_method(opt):
     print("=> Running Method: {}".format(opt.model['name']))
     if opt.model['name'] in ['ae', 'ae-grad', 'ae-spatial', 'ae-ssim', 'ae-l1', 'ae-perceptual']:
-        # if opt.model['name'] == 'ae' or opt.model['name'] == 'ae-grad' or opt.model['name'] == 'ae-spatial' \
-        #         or opt.model['name'] == 'ae-ssim' or opt.model['name'] == 'ae-l1':
         return AEWorker(opt)
     elif opt.model['name'] == 'memae':
         return MemAEWorker(opt)
