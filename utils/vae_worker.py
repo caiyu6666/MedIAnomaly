@@ -17,7 +17,7 @@ class VAEWorker(AEWorker):
 
             net_out = self.net(img)
 
-            loss, recon_loss, kl_loss = self.criterion(img, net_out, kl_weight=0.005)
+            loss, recon_loss, kl_loss = self.criterion(img, net_out)
 
             self.optimizer.zero_grad()
             loss.backward()

@@ -4,7 +4,7 @@
 # shellcheck disable=SC2004
 data="brats"
 input_size=128
-gpu_id=6
+gpu_id=7
 num_repeat=3
 
 for((i=1;i<=$num_repeat;i=i+1));do

@@ -3,8 +3,8 @@
 # shellcheck disable=SC1073
 
 num_repeat=3
-data='brats'
-gpu=5
+data='isic'
+gpu=7
 
 # shellcheck disable=SC2004
 for((i=0;i<$num_repeat;i=i+1));do

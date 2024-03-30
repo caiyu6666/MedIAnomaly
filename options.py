@@ -19,6 +19,8 @@ class Options:
         # self.tags = None
         # self.notes = None
 
+        self.data_name = {'rsna': 'RSNA', 'vin': 'VinDr-CXR', 'brain': 'Brain Tumor', 'lag': 'LAG', 'isic': 'ISIC2018',
+                          'c16': 'Camelyon16', 'brats': 'BraTS2021'}
         self.epochs = {'rsna': 250, 'vin': 250, 'brain': 600, 'lag': 250, 'brats': 250,
                        'oct': 250, 'colon': 250}
         self.in_c = {'c16': 3, 'colon': 1}
@@ -29,6 +31,8 @@ class Options:
         parser.add_argument("-d", '--dataset', type=str, default='rsna',
                             help='rsna, vin, brain, lag, brats, oct, colon, isic')
         parser.add_argument("-g", '--gpu', type=int, default=6, help='select gpu devices')
+        # parser.add_argument("-p", '--project-name', type=str, default="MedIAnomaly", required=False,
+        #                     help='Name of the current project. eg, MedIAnomaly')
         # parser.add_argument("-p", '--project-name', type=str, default="MedIAnomaly-Method", required=False,
         #                     help='Name of the current project. eg, MedIAnomaly')
         parser.add_argument("-p", '--project-name', type=str, default="tmp", required=False,
@@ -54,7 +58,7 @@ class Options:
 
         parser.add_argument('--train-epochs', type=int, default=250, help='number of training epochs')
         parser.add_argument('--train-eval-freq', type=int, default=25, help='epoch to evaluate')
-        parser.add_argument('--train-batch-size', type=int, default=64, help='batch size')
+        parser.add_argument('-bs', '--train-batch-size', type=int, default=64, help='batch size')
         parser.add_argument('--train-lr', type=float, default=1e-3, help='initial learning rate')
         parser.add_argument('--train-weight-decay', type=float, default=0, help='weight decay')
         parser.add_argument('--train-seed', type=int, default=None, help='random seed')
@@ -106,9 +110,9 @@ class Options:
             #                                                                             self.test['test_epoch'])
             self.test['model_path'] = '{:s}/checkpoints/model.pth'.format(self.train['save_dir'])
 
-        # define data transforms for training
-        self.transform['train'] = get_transform(self, 'train')
-        self.transform['test'] = get_transform(self, 'test')
+        # # define data transforms for training
+        # self.transform['train'] = get_transform(self)
+        # self.transform['test'] = get_transform(self, 'test')
 
     def save_options(self):
         if not os.path.exists(self.train['save_dir']):

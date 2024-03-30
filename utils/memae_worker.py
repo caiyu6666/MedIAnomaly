@@ -17,7 +17,7 @@ class MemAEWorker(AEWorker):
 
             net_out = self.net(img)
 
-            loss, recon_loss, entro_loss = self.criterion(img, net_out, entropy_loss_weight=0.0002)
+            loss, recon_loss, entro_loss = self.criterion(img, net_out)
 
             self.optimizer.zero_grad()
             loss.backward()

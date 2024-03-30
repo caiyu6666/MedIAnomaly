@@ -2,9 +2,9 @@
 # shellcheck disable=SC1073
 # shellcheck disable=SC1009
 # shellcheck disable=SC2004
-data="brats"
-input_size=64
-gpu_id=6
+data="isic"
+input_size=128
+gpu_id=7
 num_repeat=3
 
 for((i=1;i<=$num_repeat;i=i+1));do

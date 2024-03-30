@@ -38,6 +38,7 @@ class MedAD(data.Dataset):
         self.transform = transform if transform is not None else lambda x: x
         if context_encoding:
             self.random_mask = transforms.RandomErasing(p=1., scale=(0.024, 0.024), ratio=(1., 1.), value=-1)
+            # Randomly mask 10x10 (sqrt(64 x 64 x 0.024)=10)
         else:
             self.random_mask = None
 
@@ -217,7 +218,7 @@ class Camelyon16AD(data.Dataset):
 
 
 class ISIC2018(data.Dataset):
-    def __init__(self, main_path, img_size=64, transform=None, mode="train", context_encoding=False):
+    def __init__(self, main_path, img_size=64, transform=None, mode="train", n_channel=1, context_encoding=False):
         super(ISIC2018, self).__init__()
         self.root = main_path
         self.res = img_size
@@ -233,27 +234,27 @@ class ISIC2018(data.Dataset):
         print("Loading images")
         if mode == 'train':
             data_dir = os.path.join(self.root, "ISIC2018_Task3_Training_Input")
-            data_csv = pd.read_csv(os.path.join(self.root, "ISIC2018_Task3_Training_GroundTruth"
-                                                           "/ISIC2018_Task3_Training_GroundTruth.csv"))
+            data_csv = pd.read_csv(os.path.join(self.root, "ISIC2018_Task3_Training_GroundTruth",
+                                                           "ISIC2018_Task3_Training_GroundTruth.csv"))
             train_normal = list(data_csv[data_csv['NV'] == 1]['image'])
             train_normal = [e+".jpg" for e in train_normal]
             t0 = time.time()
-            self.slices += parallel_load(data_dir, train_normal, img_size)
+            self.slices += parallel_load(data_dir, train_normal, img_size, n_channel=n_channel)
             self.labels += [0] * len(train_normal)
             self.img_ids += train_normal
             print("Loaded {} normal images, {:.3f}s".format(len(train_normal), time.time() - t0))
         else:  # test
             data_dir = os.path.join(self.root, "ISIC2018_Task3_Test_Input")
-            data_csv = pd.read_csv(os.path.join(self.root, "ISIC2018_Task3_Test_GroundTruth"
-                                                           "/ISIC2018_Task3_Test_GroundTruth.csv"))
+            data_csv = pd.read_csv(os.path.join(self.root, "ISIC2018_Task3_Test_GroundTruth",
+                                                           "ISIC2018_Task3_Test_GroundTruth.csv"))
             test_normal = list(data_csv[data_csv['NV'] == 1]['image'])
             test_abnormal = list(data_csv[data_csv['NV'] == 0]['image'])
             test_normal = [e + ".jpg" for e in test_normal]
             test_abnormal = [e + ".jpg" for e in test_abnormal]
 
             t0 = time.time()
-            self.slices += parallel_load(data_dir, test_normal, img_size)
-            self.slices += parallel_load(data_dir, test_abnormal, img_size)
+            self.slices += parallel_load(data_dir, test_normal, img_size, n_channel=n_channel)
+            self.slices += parallel_load(data_dir, test_abnormal, img_size, n_channel=n_channel)
             self.labels += len(test_normal) * [0] + len(test_abnormal) * [1]
             self.img_ids += test_normal + test_abnormal
             print("Loaded {} test normal images, "
@@ -264,7 +265,7 @@ class ISIC2018(data.Dataset):
         img = self.transform(img)
 
         label = self.labels[index]
-        img_id = self.img_ids[index]
+        img_id = self.img_ids[index].split('.')[0]
 
         if self.random_mask is not None:
             img_masked = self.random_mask(img)
@@ -276,92 +277,9 @@ class ISIC2018(data.Dataset):
         return len(self.slices)
 
 
-# class BraTSAD(data.Dataset):
-#     o_size = (70, 208, 208)
-#
-#     def __init__(self, main_path, img_size=64, transform=None, istrain=True, context_encoding=False):
-#         # "/home/ycaibt/datasets/BraTS2021/BraTS_AD/"
-#         super(BraTSAD, self).__init__()
-#         self.root = main_path
-#         self.istrain = istrain
-#         self.res = img_size
-#         self.labels = []
-#         self.masks = []
-#         self.img_id = []
-#         self.slices = []  # slices for training and volumes for testing
-#         # self.transform = transform if transform is not None else lambda x: x
-#         self.transform = transform
-#
-#         if context_encoding:
-#             self.random_mask = transforms.RandomErasing(p=1., scale=(0.024, 0.024), ratio=(1., 1.), value=-1)
-#         else:
-#             self.random_mask = None
-#
-#         print("Loading images")
-#         if istrain:
-#             data_dir = os.path.join(self.root, "train")
-#             train_normal = glob.glob(os.path.join(data_dir, "*", "*.png"))
-#
-#             t0 = time.time()
-#             self.slices += parallel_load("", train_normal, img_size)
-#             self.labels += [0] * len(train_normal)
-#             self.img_id += [img_name.split('/')[-1].split('.')[0] for img_name in train_normal]
-#             print("Loaded {} normal images, {:.3f}s".format(len(train_normal), time.time() - t0))
-#
-#         else:  # test
-#             test_dir = os.path.join(self.root, "test")
-#
-#             test_scans = sorted(glob.glob(os.path.join(test_dir, "*", "*flair.nii.gz")))
-#             seg_masks = sorted(glob.glob(os.path.join(test_dir, "*", "*seg.nii.gz")))
-#
-#             def load_mri(img_path):
-#                 img_scale = img_size * 1.0 / self.o_size[1]
-#                 img = sitk.GetArrayFromImage(sitk.ReadImage(img_path))
-#                 img = ndimage.zoom(img, (1., img_scale, img_scale), order=3)
-#                 return img
-#
-#             def load_mask(img_path):
-#                 img_scale = img_size * 1.0 / self.o_size[1]
-#                 img = sitk.GetArrayFromImage(sitk.ReadImage(img_path))
-#                 img = (img > 0).astype(np.uint8)
-#                 img = ndimage.zoom(img, (1., img_scale, img_scale), order=0)
-#                 return img
-#
-#             t0 = time.time()
-#             self.slices += Parallel(n_jobs=-1, verbose=0)(delayed(load_mri)(file) for file in test_scans)
-#             self.masks += Parallel(n_jobs=-1, verbose=0)(delayed(load_mask)(file) for file in seg_masks)
-#
-#             self.img_id += [img_name.split('/')[-1].split('.')[0][:-6] for img_name in test_scans]
-#             print("Loaded {} test mri scans and {} test segmentation masks. {:.3f}s".format(
-#                 len(test_scans), len(seg_masks), time.time() - t0))
-#
-#     def __getitem__(self, index):
-#         img_id = self.img_id[index]
-#         if self.istrain:
-#             img = self.slices[index]
-#             img = self.transform(img)
-#             label = self.labels[index]
-#             if self.random_mask is not None:
-#                 img_masked = self.random_mask(img)
-#                 return {'img': img, 'label': label, 'name': img_id, 'img_masked': img_masked}
-#             else:
-#                 return {'img': img, 'label': label, 'name': img_id}
-#         else:
-#             volume = self.slices[index]
-#             volume = volume.transpose(1, 2, 0)
-#             volume = self.transform(volume)
-#             mask = self.masks[index]
-#
-#             return {'volume': volume, 'mask': mask, 'name': img_id}
-#
-#     def __len__(self):
-#         return len(self.slices)
-
-
 # The following datasets, OCT2017 and Hyper-Kvasir, are not distinguishable for the evaluation of anomaly detection
-
 class OCT2017(data.Dataset):
-    def __init__(self, main_path="/home/ycaibt/datasets/OCT2017/", img_size=64, transform=None, mode="train"):
+    def __init__(self, main_path, img_size=64, transform=None, mode="train"):
         super(OCT2017, self).__init__()
         assert mode in ["train", "test"]
 

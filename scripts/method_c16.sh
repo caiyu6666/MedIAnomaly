@@ -3,7 +3,7 @@
 # shellcheck disable=SC1073
 
 num_repeat=3
-data='brats'
+data='c16'
 gpu=5
 
 # shellcheck disable=SC2004

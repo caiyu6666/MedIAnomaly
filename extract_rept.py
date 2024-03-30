@@ -10,14 +10,11 @@ def main():
 
     worker = get_method(opt)
     worker.set_gpu_device()
-    worker.set_seed()
     worker.set_network_loss()
     worker.set_logging(test=True)
     worker.load_checkpoint()
-    worker.set_dataloader(test=True)
-    worker.run_eval()
-
-    # worker.data_rept()
+    worker.set_dataloader()
+    worker.data_rept()
 
 
 if __name__ == "__main__":

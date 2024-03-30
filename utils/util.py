@@ -57,7 +57,7 @@ def compute_dice(preds: np.ndarray, targets: np.ndarray) -> float:
 
 def compute_best_dice(preds: np.ndarray, targets: np.ndarray,
                       # n_thresh: float = 100,
-                      n_thresh: float = 1000,
+                      n_thresh: float = 200,
                       num_processes: int = 8):
     """
     Compute the best dice score for n_thresh thresholds.
@@ -89,53 +89,51 @@ def _dice_multiprocessing(preds: np.ndarray, targets: np.ndarray,
     return compute_dice(np.where(preds > threshold, 1, 0), targets)
 
 
-def calculate_threshold_fpr(y_true, y_pred, target_fpr=0.01, num_iters=20):
-    """
-    Determine the threshold at the target fpr using dichotomy.
-    :param y_true:
-    :param y_pred:
-    :param target_fpr:
-    :param num_iters:  The larger num_iters, the higher accuracy for the threshold.
-    :return:
-    """
-    # left, right = 0.0, 1.0
-    left, right = np.min(y_pred), np.max(y_pred)
-    threshold = (left + right) / 2.
-    for i in range(num_iters):
-        y_pred_binarized = (y_pred > threshold).astype(np.uint8)
-        tn = np.sum(np.logical_and(y_true == 0, y_pred_binarized == 0))
-        fp = np.sum(np.logical_and(y_true == 0, y_pred_binarized == 1))
-        fpr = fp / (fp + tn)
+# def calculate_threshold_fpr(y_true, y_pred, target_fpr=0.01, num_iters=20):
+#     """
+#     Determine the threshold at the target fpr using dichotomy.
+#     :param y_true:
+#     :param y_pred:
+#     :param target_fpr:
+#     :param num_iters:  The larger num_iters, the higher accuracy for the threshold.
+#     :return:
+#     """
+#     # left, right = 0.0, 1.0
+#     left, right = np.min(y_pred), np.max(y_pred)
+#     threshold = (left + right) / 2.
+#     for i in range(num_iters):
+#         y_pred_binarized = (y_pred > threshold).astype(np.uint8)
+#         tn = np.sum(np.logical_and(y_true == 0, y_pred_binarized == 0))
+#         fp = np.sum(np.logical_and(y_true == 0, y_pred_binarized == 1))
+#         fpr = fp / (fp + tn)
+#
+#         if fpr > target_fpr:
+#             left = threshold
+#             threshold = (left + right) / 2.
+#         elif fpr < target_fpr:
+#             right = threshold
+#             threshold = (left + right) / 2.
+#         else:
+#             break
+#
+#     y_pred_binarized = (y_pred > threshold).astype(np.uint8)
+#     tn = np.sum(np.logical_and(y_true == 0, y_pred_binarized == 0))
+#     fp = np.sum(np.logical_and(y_true == 0, y_pred_binarized == 1))
+#     fpr = fp / (fp + tn)
+#     return fpr, threshold
+#
+#
+# def calculate_dice_thr(y_true, y_score, threshold):
+#     dice_l = []
+#     for i in range(len(y_score)):
+#         volume_score, volume_mask = y_score[i], y_true[i]
+#         volume_score = np.array(volume_score)
+#         volume_pred = (volume_score > threshold).astype(np.uint8)
+#         dice = metric.binary.dc(volume_pred, volume_mask)
+#         dice_l.append(dice)
+#     return np.mean(dice_l)
 
-        if fpr > target_fpr:
-            left = threshold
-            threshold = (left + right) / 2.
-        elif fpr < target_fpr:
-            right = threshold
-            threshold = (left + right) / 2.
-        else:
-            break
 
-    y_pred_binarized = (y_pred > threshold).astype(np.uint8)
-    tn = np.sum(np.logical_and(y_true == 0, y_pred_binarized == 0))
-    fp = np.sum(np.logical_and(y_true == 0, y_pred_binarized == 1))
-    fpr = fp / (fp + tn)
-    return fpr, threshold
-
-
-def calculate_dice_thr(y_true, y_score, threshold):
-    dice_l = []
-    for i in range(len(y_score)):
-        volume_score, volume_mask = y_score[i], y_true[i]
-        volume_score = np.array(volume_score)
-        volume_pred = (volume_score > threshold).astype(np.uint8)
-        dice = metric.binary.dc(volume_pred, volume_mask)
-        dice_l.append(dice)
-    return np.mean(dice_l)
-
-
-# Copyright 2020 by Gongfan Fang, Zhejiang University.
-# All rights reserved.
 import warnings
 from typing import List, Optional, Tuple, Union
 

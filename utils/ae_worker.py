@@ -5,14 +5,19 @@ import torch
 from torchvision import transforms
 import os
 from sklearn import metrics
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
 
 from utils.base_worker import BaseWorker
-from utils.util import AverageMeter, calculate_threshold_fpr, calculate_dice_thr, compute_best_dice
+from utils.util import AverageMeter, compute_best_dice
 
 
 class AEWorker(BaseWorker):
     def __init__(self, opt):
         super(AEWorker, self).__init__(opt)
+        self.pixel_metric = True if self.opt.dataset == "brats" else False
+        self.grad_flag = True if self.opt.model['name'] in ['ae-grad', 'vae-elbo', 'vae-kl', 'vae-rec', 'vae-combi'] \
+            else False
 
     def train_epoch(self):
         self.net.train()
@@ -31,18 +36,59 @@ class AEWorker(BaseWorker):
             losses.update(loss.item(), img.size(0))
         return losses.avg
 
-    def eval_func(self, pixel_metric=False):
+    def data_rept(self):
+        self.net.eval()
+
+        train_normal = []
+        test_all, test_labels = [], []
+        with torch.no_grad():
+            for idx_batch, data_batch in enumerate(self.train_loader):
+                img = data_batch['img']
+                img = img.cuda()
+
+                net_out = self.net(img)
+                z = net_out['z']
+                train_normal.append(z.cpu().detach().numpy())
+
+            for idx_batch, data_batch in enumerate(self.test_loader):
+                img, label = data_batch['img'], data_batch['label']
+                img = img.cuda()
+
+                net_out = self.net(img)
+                z = net_out['z']
+
+                test_all.append(z.cpu().detach().numpy())
+                test_labels.append(label.item())
+
+            test_labels = np.array(test_labels)
+            test_all = np.concatenate(test_all, axis=0)
+
+            test_normal = test_all[np.where(test_labels == 0)]
+            test_abnormal = test_all[np.where(test_labels == 1)]
+
+        train_normal = np.concatenate(train_normal, axis=0)
+
+        np.save(os.path.join(self.opt.test['save_dir'], '{}_train.npy'.format(self.opt.dataset)), train_normal)
+        np.save(os.path.join(self.opt.test['save_dir'], '{}_test_normal.npy'.format(self.opt.dataset)), test_normal)
+        np.save(os.path.join(self.opt.test['save_dir'], '{}_test_abnormal.npy'.format(self.opt.dataset)), test_abnormal)
+
+        print("Train normal:", train_normal.shape)
+        print("Test normal:", test_normal.shape)
+        print("Test abnormal:", test_abnormal.shape)
+
+    def evaluate(self):
         self.net.eval()
         self.close_network_grad()
 
         test_imgs, test_imgs_hat, test_scores, test_score_maps, test_names, test_labels, test_masks = \
             [], [], [], [], [], [], []
+        # test_repts = []
         # with torch.no_grad():
         for idx_batch, data_batch in enumerate(self.test_loader):
             # test batch_size=1
             img, label, name = data_batch['img'], data_batch['label'], data_batch['name']
             img = img.cuda()
-            img.requires_grad = True
+            img.requires_grad = self.grad_flag  # Will be True for gradient-based methods
 
             net_out = self.net(img)
 
@@ -50,7 +96,7 @@ class AEWorker(BaseWorker):
             test_score_maps.append(anomaly_score_map)
 
             test_labels.append(label.item())
-            if pixel_metric:
+            if self.pixel_metric:
                 mask = data_batch['mask']
                 test_masks.append(mask)
 
@@ -59,6 +105,8 @@ class AEWorker(BaseWorker):
                 test_names.append(name)
                 test_imgs.append(img.cpu())
                 test_imgs_hat.append(img_hat.cpu())
+                # z = net_out['z']
+                # test_repts.append(z.cpu().detach().numpy())
 
         test_score_maps = torch.cat(test_score_maps, dim=0)  # Nx1xHxW
         test_scores = torch.mean(test_score_maps, dim=[1, 2, 3]).numpy()  # N
@@ -70,12 +118,14 @@ class AEWorker(BaseWorker):
         results = {'AUC': auc, "AP": ap}
 
         # pixel-level metrics
-        if pixel_metric:
+        if self.pixel_metric:
             test_masks = torch.cat(test_masks, dim=0).unsqueeze(1)  # NxHxW -> Nx1xHxW
             pix_ap = metrics.average_precision_score(test_masks.numpy().reshape(-1),
                                                      test_score_maps.numpy().reshape(-1))
+            pix_auc = metrics.roc_auc_score(test_masks.numpy().reshape(-1),
+                                            test_score_maps.numpy().reshape(-1))
             best_dice, best_thresh = compute_best_dice(test_score_maps.numpy(), test_masks.numpy())
-            results.update({'PixAP': pix_ap, 'BestDice': best_dice, 'BestThresh': best_thresh})
+            results.update({'PixAUC': pix_auc, 'PixAP': pix_ap, 'BestDice': best_dice, 'BestThresh': best_thresh})
         else:
             test_masks = None
 
@@ -89,6 +139,22 @@ class AEWorker(BaseWorker):
             test_imgs_hat = torch.cat(test_imgs_hat, dim=0)
             self.visualize_2d(test_imgs, test_imgs_hat, test_score_maps, test_names, test_labels, test_masks)
 
+            # # rept vis
+            # test_repts = np.concatenate(test_repts, axis=0)  # Nxd
+            # test_tsne = TSNE(n_components=2).fit_transform(test_repts)  # Nx2
+            # normal_tsne = test_tsne[np.where(test_labels == 0)]
+            # abnormal_tsne = test_tsne[np.where(test_labels == 1)]
+            # plt.rcParams['font.family'] = 'Times New Roman'
+            # plt.rcParams.update({'font.size': 14})
+            # plt.scatter(normal_tsne[:, 0], normal_tsne[:, 1], color='b', label="Normal", s=2)
+            # plt.scatter(abnormal_tsne[:, 0], abnormal_tsne[:, 1], color='r', label="Abnormal", s=2)
+            # plt.xticks([])
+            # plt.yticks([])
+            # plt.legend(loc='upper left')
+            # # plt.title(self.opt.data_name[self.opt.dataset] + ' | OC-SVM Perf. 0.66/0.82')
+            # # plt.title('OC-SVM Perf. 0.48/0.52')
+            # plt.tight_layout()
+            # plt.savefig(os.path.join(self.opt.train['save_dir'], 'tsne.pdf'))
         self.enable_network_grad()
         return results
 
@@ -97,10 +163,17 @@ class AEWorker(BaseWorker):
         imgs_hat = (imgs_hat + 1) / 2
         imgs_hat = torch.clamp(imgs_hat, min=0, max=1)
 
-        clamp_max = torch.quantile(score_maps, 0.9999, interpolation="nearest")
-        # clamp_max = torch.quantile(score_maps, 0.999, interpolation="nearest")
-        score_maps = torch.clamp(score_maps, min=0., max=clamp_max)
-        score_maps = (score_maps - torch.min(score_maps)) / (torch.max(score_maps) - torch.min(score_maps))
+        overall_dir = os.path.join(self.opt.test['save_dir'], 'vis', 'overall')
+        separate_dir = os.path.join(self.opt.test['save_dir'], 'vis', 'separate')
+        if not os.path.exists(overall_dir):
+            os.makedirs(overall_dir)
+        if not os.path.exists(separate_dir):
+            os.makedirs(separate_dir)
+
+        # clamp_max = torch.quantile(score_maps, 0.9999, interpolation="nearest")
+        # # clamp_max = torch.quantile(score_maps, 0.999, interpolation="nearest")
+        # score_maps = torch.clamp(score_maps, min=0., max=clamp_max)
+        # score_maps = (score_maps - torch.min(score_maps)) / (torch.max(score_maps) - torch.min(score_maps))
 
         if imgs.size(1) == 3:
             score_maps = score_maps.repeat(1, 3, 1, 1)
@@ -113,6 +186,8 @@ class AEWorker(BaseWorker):
             map_norm = score_maps[i]
             label = labels[i]
 
+            map_norm = (map_norm - torch.min(map_norm)) / (torch.max(map_norm) - torch.min(map_norm))
+
             if masks is not None:
                 mask = masks[i]
                 overview = torch.cat([img, img_hat, map_norm, mask], dim=-1)
@@ -120,47 +195,16 @@ class AEWorker(BaseWorker):
                 overview = torch.cat([img, img_hat, map_norm], dim=-1)
 
             overview = transforms.ToPILImage()(overview)
+            img_hat = transforms.ToPILImage()(img_hat)
+            pred = transforms.ToPILImage()(map_norm)
 
-            save_path = os.path.join(self.opt.test['save_dir'], str(label) + "_" + name + ".png")
-            overview.save(save_path)
+            overview_path = os.path.join(overall_dir, str(label) + "_" + name + ".png")
+            rec_path = os.path.join(separate_dir, str(label) + "_" + name + "_rec" + ".png")
+            score_path = os.path.join(separate_dir, str(label) + "_" + name + "_pred" + ".png")
 
-    def visualize_3d(self, volumes, volumes_hat, score_maps, masks, names):
-        """
-
-        :param volumes:
-        :param volumes_hat:
-        :param score_maps:
-        :param masks: list of ndarray, [(Depth, 1, H, W)]
-        :param names:
-        :return:
-        """
-        volumes = (volumes + 1) / 2
-        volumes_hat = (volumes_hat + 1) / 2
-        volumes_hat = torch.clamp(volumes_hat, min=0, max=1)
-
-        # clamp_max = torch.quantile(score_maps, 0.99, interpolation="nearest")
-        # # torch.quantile() cannot handle a so huge tensor
-        clamp_max = np.quantile(score_maps.numpy(), 0.9999, interpolation="nearest")
-        score_maps = torch.clamp(score_maps, min=0., max=clamp_max)
-        score_maps = (score_maps - torch.min(score_maps)) / (torch.max(score_maps) - torch.min(score_maps))
-
-        n = 0
-        for i in range(len(masks)):
-            name = names[i][0]
-            mask = masks[i]
-            mask = torch.tensor(mask)
-
-            for j in range(mask.size(0)):
-                mask_sli = mask[j]
-                sli = volumes[n]
-                sli_hat = volumes_hat[n]
-                map_norm = score_maps[n]
-
-                overview = torch.cat([sli, sli_hat, map_norm, mask_sli], dim=-1)
-                overview = transforms.ToPILImage()(overview)
-                save_path = os.path.join(self.opt.test['save_dir'], name + "_" + str(j) + ".png")
-                overview.save(save_path)
-                n += 1
+            overview.save(overview_path)
+            img_hat.save(rec_path)
+            pred.save(score_path)
 
     def run_train(self):
         num_epochs = self.opt.train['epochs']
