@@ -20,8 +20,6 @@ class AE(nn.Module):
         self.en_block4 = BasicBlock(4 * base_width * expansion, 4 * base_width * expansion, en_num_layers,
                                     downsample=True)
 
-        # self.bottle_neck = BottleNeck(4 * base_width * expansion, feature_size=self.fm, mid_num=mid_num,
-        #                               latent_size=latent_size)
         self.bottle_neck = bottleneck(4 * base_width * expansion, feature_size=self.fm, mid_num=mid_num,
                                       latent_size=latent_size)
 
