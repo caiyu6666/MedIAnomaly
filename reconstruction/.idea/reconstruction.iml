@@ -1,7 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<<<<<<< HEAD
 <module version="4">
   <component name="PyDocumentationSettings">
     <option name="format" value="PLAIN" />
     <option name="myDocStringFormat" value="Plain" />
+=======
+<module type="PYTHON_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$" />
+    <orderEntry type="jdk" jdkName="eez191_torch" jdkType="Python SDK" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+  <component name="PyDocumentationSettings">
+    <option name="format" value="PLAIN" />
+    <option name="myDocStringFormat" value="Plain" />
+    <option name="renderExternalDocumentation" value="true" />
+>>>>>>> f74e4c327623b7af6971a8ace69a95dc468152a4
   </component>
 </module>
