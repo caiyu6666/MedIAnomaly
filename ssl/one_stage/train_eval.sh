@@ -1,8 +1,8 @@
 num_repeat=1
-#data="rsna vin brain lag isic c16 brats"
-datasets="brats rsna"
-#settings="CutPaste FPI FPI-Poisson Shift-Intensity-M"
-settings="Shift-Intensity-M FPI-Poisson"
+datasets="rsna vin brain lag isic c16 brats"
+#datasets="brats rsna"
+settings="CutPaste FPI FPI-Poisson Shift-Intensity-M"
+#settings="Shift-Intensity-M FPI-Poisson"
 gpu_id=5
 
 for data in $datasets;do
