@@ -104,10 +104,7 @@ class Options:
             os.makedirs(os.path.join(self.train['save_dir'], 'test_results'), exist_ok=True)
             os.makedirs(os.path.join(self.train['save_dir'], 'checkpoints'), exist_ok=True)
 
-        if self.isTrain:
-            filename = '{:s}/train_options.txt'.format(self.train['save_dir'])
-        else:
-            filename = '{:s}/test_options.txt'.format(self.test['save_dir'])
+        filename = '{:s}/train_options.txt'.format(self.train['save_dir'])
         file = open(filename, 'w')
         groups = ['model', 'train', 'test', 'transform']
 

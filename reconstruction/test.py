@@ -3,7 +3,7 @@ from options import Options
 
 
 def main():
-    opt = Options(isTrain=True)
+    opt = Options(isTrain=False)
     opt.parse()
     # opt.save_options()
 
