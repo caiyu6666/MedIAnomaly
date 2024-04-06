@@ -30,11 +30,7 @@ class Options:
         parser.add_argument("-d", '--dataset', type=str, default='rsna',
                             help='rsna, vin, brain, lag, brats, oct, colon, isic')
         parser.add_argument("-g", '--gpu', type=int, default=6, help='select gpu devices')
-        # parser.add_argument("-p", '--project-name', type=str, default="MedIAnomaly", required=False,
-        #                     help='Name of the current project. eg, MedIAnomaly')
-        # parser.add_argument("-p", '--project-name', type=str, default="MedIAnomaly-Method", required=False,
-        #                     help='Name of the current project. eg, MedIAnomaly')
-        parser.add_argument("-p", '--project-name', type=str, default="tmp", required=False,
+        parser.add_argument("-p", '--project-name', type=str, default="MedIAnomaly", required=False,
                             help='Name of the current project. eg, MedIAnomaly')
         parser.add_argument("-n", '--notes', type=str, default="default", required=False,
                             help='Notes of the current experiment. e.g., ae-architecture')

@@ -31,35 +31,6 @@ class DAEWorker(AEWorker):
             losses.update(loss.item(), img.size(0))
         return losses.avg
 
-    def run_train(self):
-        num_epochs = self.opt.train['epochs']
-        print("=> Initial learning rate: {:g}".format(self.opt.train['lr']))
-        t0 = time.time()
-        for epoch in range(1, num_epochs + 1):
-            train_loss = self.train_epoch()
-            self.logger.log(step=epoch, data={"train/loss": train_loss})
-            # self.logger.log(step=epoch, data={"train/loss": train_loss, "train/lr": self.scheduler.get_last_lr()[0]})
-            # self.scheduler.step()
-
-            if epoch == 1 or epoch % self.opt.train['eval_freq'] == 0:
-                eval_results = self.evaluate()
-
-                t = time.time() - t0
-                print("Epoch[{:3d}/{:3d}]  Time:{:.1f}s  loss:{:.5f}".format(epoch, num_epochs, t, train_loss),
-                      end="  |  ")
-
-                keys = list(eval_results.keys())
-                for key in keys:
-                    print(key+": {:.5f}".format(eval_results[key]), end="  ")
-                    eval_results["val/"+key] = eval_results.pop(key)
-                print()
-
-                self.logger.log(step=epoch, data=eval_results)
-                t0 = time.time()
-
-        self.save_checkpoint()
-        self.logger.finish()
-
     def add_noise(self, x):
         """
         Generate and apply randomly translated noise to batch x
