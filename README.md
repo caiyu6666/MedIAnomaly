@@ -166,3 +166,9 @@ cd ssl/two_stage/;
 ## Acknowledgement
 
 Some datasets and codes in this repository are based on [DDAD-ASR](https://github.com/caiyu6666/DDAD-ASR), [BMAD](https://github.com/DorisBao/BMAD), [NSA](https://github.com/hmsch/natural-synthetic-anomalies), [CutPaste](https://github.com/Runinho/pytorch-cutpaste), [AnatPaste](https://github.com/jun-sato/AnatPaste). We thank the original authors for their excellent work.
+
+
+
+## Contact
+
+If any questions, feel free to contact Yu Cai: [yu.cai@connect.ust.hk](mailto:yu.cai@connect.ust.hk).
