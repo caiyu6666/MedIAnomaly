@@ -1,6 +1,6 @@
 # MedIAnomaly: A comparative study of anomaly detection in medical images
 
-This is the repository for our benchmark paper "MedIAnomaly: A comparative study of anomaly detection in medical images".
+This is the repository for our benchmark paper [MedIAnomaly: A comparative study of anomaly detection in medical images](https://arxiv.org/abs/2404.04518).
 
 
 
@@ -79,7 +79,7 @@ tar -zxvf BraTS2021.tar.gz
 
 ## Train & Evaluate
 
-### [reconstruction](./reconstruction)
+### [Reconstruction-baed methods](./reconstruction)
 
 - [x] AE ($\ell_2$, $\ell_1$, SSIM, Perceptual Loss)
 
@@ -114,7 +114,7 @@ cd reconstruction/;
 
 
 
-### [SSL](./ssl)
+### [SSL-based methods](./ssl)
 
 #### one-stage
 
@@ -165,4 +165,4 @@ cd ssl/two_stage/;
 
 ## Acknowledgement
 
-Some of the data or codes in this repository are based on [DDAD-ASR](https://github.com/caiyu6666/DDAD-ASR), [BMAD](https://github.com/DorisBao/BMAD), [NSA](https://github.com/hmsch/natural-synthetic-anomalies), [CutPaste](https://github.com/Runinho/pytorch-cutpaste), [AnatPaste](https://github.com/jun-sato/AnatPaste). We thank the original authors for their excellent work.
+Some datasets and codes in this repository are based on [DDAD-ASR](https://github.com/caiyu6666/DDAD-ASR), [BMAD](https://github.com/DorisBao/BMAD), [NSA](https://github.com/hmsch/natural-synthetic-anomalies), [CutPaste](https://github.com/Runinho/pytorch-cutpaste), [AnatPaste](https://github.com/jun-sato/AnatPaste). We thank the original authors for their excellent work.
