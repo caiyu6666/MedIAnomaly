@@ -79,7 +79,7 @@ tar -zxvf BraTS2021.tar.gz
 
 ## Train & Evaluate
 
-### [Reconstruction-baed methods](./reconstruction)
+### [Reconstruction-based methods](./reconstruction)
 
 - [x] AE ($\ell_2$, $\ell_1$, SSIM, Perceptual Loss)
 
