@@ -112,6 +112,11 @@ cd reconstruction/;
 ./train_eval.sh
 ```
 
+**[Reproduce the results in [AE4AD](https://github.com/caiyu6666/AE4AD)]** Train and evaluate AE with different latent size via:
+```bash
+cd reconstruction/;
+./train_eval_latent_size.sh
+```
 
 
 ### [SSL-based methods](./ssl)
@@ -171,4 +176,21 @@ Some datasets and codes in this repository are based on [DDAD-ASR](https://githu
 
 ## Contact
 
-If any questions, feel free to contact Yu Cai: [yu.cai@connect.ust.hk](mailto:yu.cai@connect.ust.hk).
+If any questions, feel free to raise an issue or contact Yu Cai: [yu.cai@connect.ust.hk](mailto:yu.cai@connect.ust.hk).
+
+
+## Cite
+```
+@article{cai2024medianomaly,
+  title={MedIAnomaly: A comparative study of anomaly detection in medical images},
+  author={Cai, Yu and Zhang, Weiwen and Chen, Hao and Cheng, Kwang-Ting},
+  journal={arXiv preprint arXiv:2404.04518},
+  year={2024}
+}
+@article{cai2024rethinking,
+  title={Rethinking Autoencoders for Medical Anomaly Detection from A Theoretical Perspective},
+  author={Cai, Yu and Chen, Hao and Cheng, Kwang-Ting},
+  journal={arXiv preprint arXiv:2403.09303},
+  year={2024}
+}
+```
