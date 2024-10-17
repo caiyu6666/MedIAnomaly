@@ -179,7 +179,7 @@ Some datasets and codes in this repository are based on [DDAD-ASR](https://githu
 If any questions, feel free to raise an issue or contact Yu Cai: [yu.cai@connect.ust.hk](mailto:yu.cai@connect.ust.hk).
 
 
-## Cite
+## Citation
 ```
 @article{cai2024medianomaly,
   title={MedIAnomaly: A comparative study of anomaly detection in medical images},
@@ -187,10 +187,12 @@ If any questions, feel free to raise an issue or contact Yu Cai: [yu.cai@connect
   journal={arXiv preprint arXiv:2404.04518},
   year={2024}
 }
-@article{cai2024rethinking,
-  title={Rethinking Autoencoders for Medical Anomaly Detection from A Theoretical Perspective},
+@inproceedings{cai2024rethinking,
+  title={Rethinking autoencoders for medical anomaly detection from a theoretical perspective},
   author={Cai, Yu and Chen, Hao and Cheng, Kwang-Ting},
-  journal={arXiv preprint arXiv:2403.09303},
-  year={2024}
+  booktitle={International Conference on Medical Image Computing and Computer-Assisted Intervention},
+  pages={544--554},
+  year={2024},
+  organization={Springer}
 }
 ```
