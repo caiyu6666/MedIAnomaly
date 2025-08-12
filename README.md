@@ -25,8 +25,9 @@ This is the repository for our benchmark paper [MedIAnomaly: A comparative study
 
 We provide the pre-processed seven datasets. 
 
-1. Download the pre-processed datasets from: [MedIAnomaly-Data](https://hkustconnect-my.sharepoint.com/:f:/g/personal/ycaibt_connect_ust_hk/EvxnpUPqTXdKgCGHS1PLy8UBxohYgFfxX_UBzf7Yhcx3Fw?e=cxUUot)
-2. Unzip the datasets via:
+1. Download our pre-processed datasets from: [MedIAnomaly-Data](https://zenodo.org/records/12677223)
+2. Download the ISIC2018_Task3_Training, ISIC2018_Task3_Test, and their ground truth from [ISIC2018](https://challenge.isic-archive.com/data/#2018)
+3. Unzip the datasets via:
 
 ```shell
 tar -zxvf RSNA.tar.gz
