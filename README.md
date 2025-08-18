@@ -39,7 +39,7 @@ tar -zxvf Camelyon16.tar.gz
 tar -zxvf BraTS2021.tar.gz
 ```
 
-3. Place the `MedIAnomaly-Data` directory in the user's home directory, i.e., `~/MedIAnomaly-Data/`. (Otherwise, you need to modify the data root in your code.)
+4. Place the `MedIAnomaly-Data` directory in the user's home directory, i.e., `~/MedIAnomaly-Data/`. (Otherwise, you need to modify the data root in your code.)
 
 **Finally, the data path should have the following structure:**
 
